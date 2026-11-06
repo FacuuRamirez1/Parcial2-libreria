@@ -4,7 +4,7 @@ from sqlalchemy.orm import joinedload, selectinload
 from sqlmodel import select
 
 from app.core.repository import BaseRepository
-from app.modules.ventas.models import Venta
+from app.modules.ventas.models import RenglonVenta, Venta
 
 
 class VentaRepository(BaseRepository[Venta]):
@@ -19,7 +19,7 @@ class VentaRepository(BaseRepository[Venta]):
             select(self.model_cls)
             .where(self.model_cls.id == id)
             .options(joinedload(self.model_cls.cliente))
-            .options(selectinload(self.model_cls.renglones).joinedload("libro"))
+            .options(selectinload(self.model_cls.renglones).joinedload(RenglonVenta.libro))
         )
         result = await self.session.exec(statement)
         return result.first()

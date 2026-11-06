@@ -24,14 +24,15 @@ async def crear_editorial_endpoint(
 
 @router.get("/", response_model=PaginatedResponse[EditorialRead])
 async def listar_editoriales_endpoint(
-    session: SessionDep, pag: dict = Depends(get_paginacion)
+    session: SessionDep, pag: tuple[int, int] = Depends(get_paginacion)
 ) -> PaginatedResponse[EditorialRead]:
+    page, size = pag
     return await listar_editoriales(
         session,
-        offset=pag["offset"],
-        limit=pag["limit"],
-        page=pag["page"],
-        size=pag["size"],
+        offset=(page - 1) * size,
+        limit=size,
+        page=page,
+        size=size,
     )
 
 

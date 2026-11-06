@@ -19,6 +19,7 @@ import pytest
 import pytest_asyncio
 from alembic import command
 from alembic.config import Config
+from dotenv import load_dotenv
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
@@ -29,6 +30,8 @@ from app.core.database import get_session
 from app.main import app
 
 RAIZ = Path(__file__).resolve().parent.parent
+# Permite `pytest` usando el mismo .env que la app (el entorno del proceso prevalece).
+load_dotenv(RAIZ / ".env", override=False)
 PREFIJO_DRIVER = "postgresql+asyncpg://"
 TABLAS_SIN_LIMPIAR = {"alembic_version"}
 
@@ -66,7 +69,10 @@ def _database_url_de_migraciones(url: str) -> Iterator[None]:
 def _aplicar_migraciones(url: str) -> None:
     """Aplica `alembic upgrade head` una vez por sesión, sin ruido en consola."""
     config = Config(str(RAIZ / "alembic.ini"), output_buffer=io.StringIO())
-    # Evita que env.py reconfigúre el logging con el logging.config del .ini.
+    # Alembic 1.20 resuelve `script_location` de forma perezosa desde el .ini:
+    # anular `config_file_name` sin fijarlo antes rompe `upgrade`.
+    config.set_main_option("script_location", str(RAIZ / "migrations"))
+    # Evita que env.py reconfigǧre el logging con el logging.config del .ini.
     config.config_file_name = None
     logging.getLogger("alembic").setLevel(logging.CRITICAL)
     logging.getLogger("sqlalchemy.engine").setLevel(logging.CRITICAL)

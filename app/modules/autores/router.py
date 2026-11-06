@@ -22,14 +22,15 @@ async def crear_autor_endpoint(data: AutorCreate, session: SessionDep) -> AutorR
 
 @router.get("/", response_model=PaginatedResponse[AutorRead])
 async def listar_autores_endpoint(
-    session: SessionDep, pag: dict = Depends(get_paginacion)
+    session: SessionDep, pag: tuple[int, int] = Depends(get_paginacion)
 ) -> PaginatedResponse[AutorRead]:
+    page, size = pag
     return await listar_autores(
         session,
-        offset=pag["offset"],
-        limit=pag["limit"],
-        page=pag["page"],
-        size=pag["size"],
+        offset=(page - 1) * size,
+        limit=size,
+        page=page,
+        size=size,
     )
 
 

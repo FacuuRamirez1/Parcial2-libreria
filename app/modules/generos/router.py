@@ -22,14 +22,15 @@ async def crear_genero_endpoint(data: GeneroCreate, session: SessionDep) -> Gene
 
 @router.get("/", response_model=PaginatedResponse[GeneroRead])
 async def listar_generos_endpoint(
-    session: SessionDep, pag: dict = Depends(get_paginacion)
+    session: SessionDep, pag: tuple[int, int] = Depends(get_paginacion)
 ) -> PaginatedResponse[GeneroRead]:
+    page, size = pag
     return await listar_generos(
         session,
-        offset=pag["offset"],
-        limit=pag["limit"],
-        page=pag["page"],
-        size=pag["size"],
+        offset=(page - 1) * size,
+        limit=size,
+        page=page,
+        size=size,
     )
 
 

@@ -3,8 +3,8 @@
 from decimal import Decimal
 
 from fastapi import HTTPException
-from sqlalchemy import select
 from sqlalchemy.orm import selectinload
+from sqlmodel import select
 
 from app.core.database import SessionDep
 from app.core.paginacion import PaginatedResponse, calcular_paginas, verificar_pagina_valida
