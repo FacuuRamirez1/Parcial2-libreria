@@ -7,6 +7,10 @@ from typing import Literal
 from pydantic import ConfigDict, Field, model_validator
 from sqlmodel import SQLModel
 
+from app.modules.autores.schemas import AutorRead
+from app.modules.editoriales.schemas import EditorialRead
+from app.modules.generos.schemas import GeneroRead
+
 
 class LibroAutorCreate(SQLModel):
     model_config = ConfigDict(extra="forbid")
@@ -63,3 +67,17 @@ class LibroRead(SQLModel):
     borrado_en: datetime | None = None
     editorial_id: int
     genero_id: int | None = None
+
+
+class LibroAutorRead(SQLModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    autor: AutorRead
+    rol: str
+    orden: int
+
+
+class LibroDetalleRead(LibroRead):
+    editorial: EditorialRead
+    genero: GeneroRead | None = None
+    autores: list[LibroAutorRead] = Field(default_factory=list)

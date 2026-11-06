@@ -173,7 +173,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06* / C-07*
 > C-06 y C-07 son independientes entre sí y pueden ejecutarse en paralelo tras C-05 (tocan archivos distintos: servicios de lectura vs. router de ventas/background).
 
 ### [C-06] `lecturas-sin-n-mas-uno`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` archivado
 - **Scope** (Ejercicio 6; US-009):
   - `GET /libros/{id}`: una consulta con `joinedload` (editorial, género) y `selectinload` (autorías → autor)
   - `GET /ventas/{id}` y respuesta del alta: `joinedload` (cliente) y `selectinload` (renglones → libro)
@@ -214,5 +214,5 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06* / C-07*
 | C-03 | migraciones-alembic | 3 (10) | C-02 | ALTO | `[x]` |
 | C-04 | contratos-crud | 4 (15) | C-03 | MEDIO | `[x]` |
 | C-05 | altas-con-relaciones | 5 (20) | C-04 | ALTO | `[x]` |
-| C-06 | lecturas-sin-n-mas-uno | 6 (10) | C-05 | MEDIO | `[ ]` |
+| C-06 | lecturas-sin-n-mas-uno | 6 (10) | C-05 | MEDIO | `[x]` |
 | C-07 | asincronia-sin-bloqueos | 7 (10) | C-05 | MEDIO | `[ ]` |

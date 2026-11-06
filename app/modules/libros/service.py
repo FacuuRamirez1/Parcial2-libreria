@@ -5,7 +5,26 @@ from app.core.paginacion import PaginatedResponse, paginar
 from app.core.unit_of_work import UnitOfWork
 from app.modules.libros.models import Libro, LibroAutor, MovimientoStock
 from app.modules.libros.repository import LibroRepository
-from app.modules.libros.schemas import LibroCreate, LibroRead, LibroUpdate
+from app.modules.editoriales.schemas import EditorialRead
+from app.modules.generos.schemas import GeneroRead
+from app.modules.libros.schemas import (
+    LibroAutorRead,
+    LibroCreate,
+    LibroDetalleRead,
+    LibroRead,
+    LibroUpdate,
+)
+
+
+def _a_detalle(libro: Libro) -> LibroDetalleRead:
+    """Mapea el modelo con relaciones ya precargadas al DTO de detalle."""
+    base = LibroRead.model_validate(libro)
+    return LibroDetalleRead(
+        **base.model_dump(),
+        editorial=EditorialRead.model_validate(libro.editorial),
+        genero=GeneroRead.model_validate(libro.genero) if libro.genero else None,
+        autores=[LibroAutorRead.model_validate(a) for a in libro.autorias],
+    )
 
 
 async def _get_libro(session: SessionDep, id: int) -> Libro:
@@ -55,9 +74,11 @@ async def listar_libros(
     size: int,
     titulo: str | None = None,
     genero_id: int | None = None,
-) -> PaginatedResponse[LibroRead]:
+) -> PaginatedResponse[LibroDetalleRead]:
     repo = LibroRepository(session, Libro)
     total = await repo.count_filtrado(titulo=titulo, genero_id=genero_id)
+    if total == 0:
+        return paginar([], 0, page, size)
     offset = (page - 1) * size
     items = await repo.get_all_filtrado(
         titulo=titulo,
@@ -66,16 +87,21 @@ async def listar_libros(
         limit=size,
     )
     return paginar(
-        [LibroRead.model_validate(i) for i in items],
+        [_a_detalle(i) for i in items],
         total,
         page,
         size,
     )
 
 
-async def obtener_libro(session: SessionDep, id: int) -> LibroRead:
-    libro = await _get_libro(session, id)
-    return LibroRead.model_validate(libro)
+async def obtener_libro(session: SessionDep, id: int) -> LibroDetalleRead:
+    repo = LibroRepository(session, Libro)
+    libro = await repo.get_by_id_con_detalle(id)
+    if libro is None:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=404, detail="Libro no encontrado")
+    return _a_detalle(libro)
 
 
 async def actualizar_libro(

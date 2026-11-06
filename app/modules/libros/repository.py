@@ -3,10 +3,11 @@
 from typing import Type
 
 from sqlalchemy import func
+from sqlalchemy.orm import joinedload, selectinload
 from sqlmodel import select
 
 from app.core.repository import SoftDeleteRepository
-from app.modules.libros.models import Libro
+from app.modules.libros.models import Libro, LibroAutor
 
 
 class LibroRepository(SoftDeleteRepository[Libro]):
@@ -26,6 +27,23 @@ class LibroRepository(SoftDeleteRepository[Libro]):
             filtros.append(Libro.genero_id == genero_id)
         return filtros
 
+    def _opciones_detalle(self) -> list:
+        """Precarga el detalle: a-uno con joinedload, colecciones con selectinload."""
+        return [
+            joinedload(Libro.editorial),
+            joinedload(Libro.genero),
+            selectinload(Libro.autorias).joinedload(LibroAutor.autor),
+        ]
+
+    async def get_by_id_con_detalle(self, id: int) -> Libro | None:
+        statement = (
+            select(Libro)
+            .where(Libro.id == id, self._no_deleted_filter())
+            .options(*self._opciones_detalle())
+        )
+        resultado = await self.session.exec(statement)
+        return resultado.first()
+
     async def get_all_filtrado(
         self,
         *,
@@ -37,6 +55,7 @@ class LibroRepository(SoftDeleteRepository[Libro]):
         statement = (
             select(Libro)
             .where(*self._filtros_busqueda(titulo, genero_id))
+            .options(*self._opciones_detalle())
             .offset(offset)
             .limit(limit)
         )

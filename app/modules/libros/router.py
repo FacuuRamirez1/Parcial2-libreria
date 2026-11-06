@@ -6,6 +6,7 @@ from app.core.database import SessionDep
 from app.core.paginacion import PaginatedResponse, get_paginacion
 from app.modules.libros.schemas import (
     LibroCreate,
+    LibroDetalleRead,
     LibroRead,
     LibroUpdate,
     ReponerStockRequest,
@@ -27,13 +28,13 @@ async def crear_libro_endpoint(data: LibroCreate, session: SessionDep) -> LibroR
     return await crear_libro(session, data)
 
 
-@router.get("/", response_model=PaginatedResponse[LibroRead])
+@router.get("/", response_model=PaginatedResponse[LibroDetalleRead])
 async def listar_libros_endpoint(
     session: SessionDep,
     pag: tuple[int, int] = Depends(get_paginacion),
     titulo: str | None = Query(default=None, max_length=255),
     genero_id: int | None = Query(default=None),
-) -> PaginatedResponse[LibroRead]:
+) -> PaginatedResponse[LibroDetalleRead]:
     page, size = pag
     return await listar_libros(
         session,
@@ -44,8 +45,8 @@ async def listar_libros_endpoint(
     )
 
 
-@router.get("/{id}", response_model=LibroRead)
-async def obtener_libro_endpoint(id: int, session: SessionDep) -> LibroRead:
+@router.get("/{id}", response_model=LibroDetalleRead)
+async def obtener_libro_endpoint(id: int, session: SessionDep) -> LibroDetalleRead:
     return await obtener_libro(session, id)
 
 
