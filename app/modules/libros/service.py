@@ -50,12 +50,21 @@ async def crear_libro(session: SessionDep, data: LibroCreate) -> LibroRead:
 
 
 async def listar_libros(
-    session: SessionDep, page: int, size: int
+    session: SessionDep,
+    page: int,
+    size: int,
+    titulo: str | None = None,
+    genero_id: int | None = None,
 ) -> PaginatedResponse[LibroRead]:
     repo = LibroRepository(session, Libro)
-    total = await repo.count()
+    total = await repo.count_filtrado(titulo=titulo, genero_id=genero_id)
     offset = (page - 1) * size
-    items = await repo.get_all(offset=offset, limit=size)
+    items = await repo.get_all_filtrado(
+        titulo=titulo,
+        genero_id=genero_id,
+        offset=offset,
+        limit=size,
+    )
     return paginar(
         [LibroRead.model_validate(i) for i in items],
         total,

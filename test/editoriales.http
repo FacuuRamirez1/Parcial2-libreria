@@ -50,7 +50,7 @@ Content-Type: application/json
 
 ### POST nombre duplicado (409)
 # Esperado: HTTP/1.1 409 Conflict
-# Cuerpo: {"detail": "Ya existe una editorial con ese nombre"}
+# Cuerpo: {"detail": "Conflicto de integridad: registro duplicado o referencia invalida"}
 POST {{base}}/editoriales
 Content-Type: application/json
 

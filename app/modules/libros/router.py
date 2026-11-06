@@ -1,6 +1,6 @@
 """Rutas HTTP del módulo libros."""
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 
 from app.core.database import SessionDep
 from app.core.paginacion import PaginatedResponse, get_paginacion
@@ -29,10 +29,19 @@ async def crear_libro_endpoint(data: LibroCreate, session: SessionDep) -> LibroR
 
 @router.get("/", response_model=PaginatedResponse[LibroRead])
 async def listar_libros_endpoint(
-    session: SessionDep, pag: tuple[int, int] = Depends(get_paginacion)
+    session: SessionDep,
+    pag: tuple[int, int] = Depends(get_paginacion),
+    titulo: str | None = Query(default=None, max_length=255),
+    genero_id: int | None = Query(default=None),
 ) -> PaginatedResponse[LibroRead]:
     page, size = pag
-    return await listar_libros(session, page=page, size=size)
+    return await listar_libros(
+        session,
+        page=page,
+        size=size,
+        titulo=titulo,
+        genero_id=genero_id,
+    )
 
 
 @router.get("/{id}", response_model=LibroRead)

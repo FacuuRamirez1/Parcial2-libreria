@@ -50,7 +50,7 @@ Content-Type: application/json
 
 ### POST email duplicado (409)
 # Esperado: HTTP/1.1 409 Conflict
-# Cuerpo: {"detail": "Ya existe un cliente con ese email"}
+# Cuerpo: {"detail": "El email del cliente ya esta registrado"}
 POST {{base}}/clientes
 Content-Type: application/json
 

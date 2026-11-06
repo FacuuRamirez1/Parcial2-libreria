@@ -40,11 +40,6 @@ Content-Type: application/json
   "titulo": "Cien anos de soledad (edicion especial)"
 }
 
-### DELETE libro por id (204)
-# Esperado: HTTP/1.1 204 No Content
-# Cuerpo: (vacio)
-DELETE {{base}}/libros/1
-
 ### POST ISBN duplicado (409)
 # Esperado: HTTP/1.1 409 Conflict
 # Cuerpo: {"detail": "Conflicto de integridad: registro duplicado o referencia inválida"}
@@ -158,7 +153,24 @@ Content-Type: application/json
   ]
 }
 
+### GET busqueda por titulo (200, case-insensitive)
+# Esperado: HTTP/1.1 200 OK
+# Cuerpo: {"items": [{"id": 1, "titulo": "Cien anos de soledad", ...}], "total": 1, "page": 1, "size": 20, "pages": 1}
+GET {{base}}/libros?titulo=CIEN
+
+### GET busqueda por titulo con intento de inyeccion (200, lista vacia)
+# Esperado: HTTP/1.1 200 OK
+# Cuerpo: {"items": [], "total": 0, "page": 1, "size": 20, "pages": 1}
+# Nota: el patron viaja como parametro ligado; no se concatena SQL.
+GET {{base}}/libros?titulo=' OR 1=1 --
+
 ### GET lista con pagina fuera de rango (422)
 # Esperado: HTTP/1.1 422 Unprocessable Entity
 # Cuerpo: {"detail": "Pagina fuera de rango"}
 GET {{base}}/libros?page=999999&size=20
+
+### DELETE libro por id (204)
+# Esperado: HTTP/1.1 204 No Content
+# Cuerpo: (vacio)
+# Nota: al ser soft delete, un POST posterior con el mismo ISBN volveria a ser valido.
+DELETE {{base}}/libros/1
