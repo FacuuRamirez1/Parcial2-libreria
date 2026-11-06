@@ -94,7 +94,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06* / C-07*
 ## FASE 2 — Datos
 
 ### [C-02] `modelos-restricciones-relaciones`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` archivado
 - **Scope** (Ejercicio 2; US-003):
   - Modelos de tabla: `Editorial`, `Genero`, `Autor`, `Libro`, `LibroAutor`, `Cliente`, `PerfilCliente`, `Venta`, `RenglonVenta` con los nombres de tablas/columnas exactos de la consigna
   - Constraints: UNIQUE (`editorial.nombre`, `genero.nombre`, `libro.isbn`, `cliente.email`, `perfil_cliente.cliente_id`); CHECK (`precio > 0`, `stock >= 0`, `orden >= 1`, `rol` en autor/coautor/traductor/ilustrador, `total >= 0`, `cantidad > 0`, `precio_unitario > 0`); PK compuesta de `libro_autor`
@@ -210,7 +210,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06* / C-07*
 | ID | Change | Ejercicio (pts) | Depende de | Governance | Estado |
 |----|--------|-----------------|------------|------------|--------|
 | C-01 | proyecto-conexion-ciclo-vida | 1 (10) | — | BAJO | `[x]` |
-| C-02 | modelos-restricciones-relaciones | 2 (25) | C-01 | CRITICO | `[ ]` |
+| C-02 | modelos-restricciones-relaciones | 2 (25) | C-01 | CRITICO | `[x]` |
 | C-03 | migraciones-alembic | 3 (10) | C-02 | ALTO | `[ ]` |
 | C-04 | contratos-crud | 4 (15) | C-03 | MEDIO | `[ ]` |
 | C-05 | altas-con-relaciones | 5 (20) | C-04 | ALTO | `[ ]` |
