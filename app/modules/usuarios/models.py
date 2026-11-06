@@ -46,6 +46,7 @@ class AsignacionRol(SQLModel, table=True):
             "uq_asignacion_rol_activa",
             "usuario_id",
             "rol",
+            unique=True,
             postgresql_where=text("revocada_en IS NULL"),
         ),
     )

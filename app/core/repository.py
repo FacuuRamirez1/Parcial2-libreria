@@ -4,8 +4,8 @@ from datetime import UTC, datetime
 from typing import TypeVar, Type
 
 from sqlalchemy import func
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import SQLModel, select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 T = TypeVar("T", bound=SQLModel)
 

@@ -20,17 +20,15 @@ class LibroCreate(SQLModel):
 class LibroUpdate(SQLModel):
     model_config = ConfigDict(extra="forbid")
 
-    isbn: str | None = Field(default=None, max_length=17)
     titulo: str | None = Field(default=None, max_length=255)
     precio: Decimal | None = Field(default=None)
-    editorial_id: int | None = Field(default=None)
-    genero_id: int | None = Field(default=None)
 
 
 class ReponerStockRequest(SQLModel):
     model_config = ConfigDict(extra="forbid")
 
     cantidad: int = Field(gt=0)
+    usuario_id: int
 
 
 class LibroRead(SQLModel):

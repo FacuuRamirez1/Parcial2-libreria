@@ -2,7 +2,7 @@
 
 from app.core.database import SessionDep
 from app.core.paginacion import PaginatedResponse, paginar
-from app.modules.libros.models import Libro
+from app.modules.libros.models import Libro, MovimientoStock
 from app.modules.libros.repository import LibroRepository
 from app.modules.libros.schemas import LibroCreate, LibroRead, LibroUpdate
 
@@ -75,7 +75,9 @@ async def soft_delete_libro(session: SessionDep, id: int) -> None:
     await session.commit()
 
 
-async def reponer_stock(session: SessionDep, id: int, cantidad: int) -> LibroRead:
+async def reponer_stock(
+    session: SessionDep, id: int, cantidad: int, usuario_id: int
+) -> LibroRead:
     repo = LibroRepository(session, Libro)
     libro = await repo.get_by_id(id)
     if libro is None:
@@ -84,5 +86,12 @@ async def reponer_stock(session: SessionDep, id: int, cantidad: int) -> LibroRea
         raise HTTPException(status_code=404, detail="Libro no encontrado")
     libro.stock = libro.stock + cantidad
     await repo.update(libro)
+    movimiento = MovimientoStock(
+        libro_id=libro.id,
+        usuario_id=usuario_id,
+        cantidad=cantidad,
+        motivo="reposicion_stock",
+    )
+    session.add(movimiento)
     await session.commit()
     return LibroRead.model_validate(libro)

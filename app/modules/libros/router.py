@@ -57,4 +57,4 @@ async def eliminar_libro_endpoint(id: int, session: SessionDep):
 async def reponer_stock_endpoint(
     id: int, data: ReponerStockRequest, session: SessionDep
 ) -> LibroRead:
-    return await reponer_stock(session, id, data.cantidad)
+    return await reponer_stock(session, id, data.cantidad, data.usuario_id)

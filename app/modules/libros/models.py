@@ -2,7 +2,7 @@
 
 import app.core.metadata  # noqa: F401  (la convención de nombres debe existir antes de declarar tablas)
 
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Optional
 
@@ -26,6 +26,7 @@ class Libro(SQLModel, table=True):
         Index(
             "uq_libro_isbn_no_borrado",
             "isbn",
+            unique=True,
             postgresql_where=text("borrado_en IS NULL"),
         ),
     )
