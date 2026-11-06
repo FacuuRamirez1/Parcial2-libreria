@@ -1,8 +1,9 @@
 @base = http://127.0.0.1:8000
 
-### POST crear libro con stock_inicial (201)
+### POST crear libro con genero_id y autores (201)
 # Esperado: HTTP/1.1 201 Created
 # Cuerpo: {"id": 1, "isbn": "978-84-376-0494-7", "titulo": "Cien anos de soledad", "precio": "25.00", "stock": 10, "borrado_en": null, "editorial_id": 1, "genero_id": 1}
+# Nota: se persisten ademas dos filas en libro_autor (rol/orden).
 POST {{base}}/libros
 Content-Type: application/json
 
@@ -12,7 +13,11 @@ Content-Type: application/json
   "precio": "25.00",
   "stock_inicial": 10,
   "editorial_id": 1,
-  "genero_id": 1
+  "genero_id": 1,
+  "autores": [
+    { "autor_id": 1, "rol": "autor", "orden": 1 },
+    { "autor_id": 2, "rol": "coautor", "orden": 2 }
+  ]
 }
 
 ### GET lista libros (200 paginado)
@@ -42,7 +47,7 @@ DELETE {{base}}/libros/1
 
 ### POST ISBN duplicado (409)
 # Esperado: HTTP/1.1 409 Conflict
-# Cuerpo: {"detail": "Ya existe un libro con ese ISBN no borrado"}
+# Cuerpo: {"detail": "Conflicto de integridad: registro duplicado o referencia inválida"}
 POST {{base}}/libros
 Content-Type: application/json
 
@@ -51,7 +56,106 @@ Content-Type: application/json
   "titulo": "Otro libro",
   "precio": "15.00",
   "stock_inicial": 5,
+  "editorial_id": 1,
+  "genero_id": 1
+}
+
+### POST editorial inexistente (409)
+# Esperado: HTTP/1.1 409 Conflict
+# Cuerpo: {"detail": "Conflicto de integridad: registro duplicado o referencia inválida"}
+POST {{base}}/libros
+Content-Type: application/json
+
+{
+  "isbn": "978-84-376-0494-8",
+  "titulo": "Editorial inexistente",
+  "precio": "15.00",
+  "stock_inicial": 5,
+  "editorial_id": 999999,
+  "genero_id": 1
+}
+
+### POST genero inexistente (409)
+# Esperado: HTTP/1.1 409 Conflict
+# Cuerpo: {"detail": "Conflicto de integridad: registro duplicado o referencia inválida"}
+POST {{base}}/libros
+Content-Type: application/json
+
+{
+  "isbn": "978-84-376-0494-9",
+  "titulo": "Genero inexistente",
+  "precio": "15.00",
+  "stock_inicial": 5,
+  "editorial_id": 1,
+  "genero_id": 999999
+}
+
+### POST autor inexistente (409, revierte libro y autorias)
+# Esperado: HTTP/1.1 409 Conflict
+# Cuerpo: {"detail": "Conflicto de integridad: registro duplicado o referencia inválida"}
+POST {{base}}/libros
+Content-Type: application/json
+
+{
+  "isbn": "978-84-376-0495-0",
+  "titulo": "Autor inexistente",
+  "precio": "15.00",
+  "stock_inicial": 5,
+  "editorial_id": 1,
+  "genero_id": 1,
+  "autores": [
+    { "autor_id": 999999, "rol": "autor", "orden": 1 }
+  ]
+}
+
+### POST genero_id ausente (422)
+# Esperado: HTTP/1.1 422 Unprocessable Entity
+# Cuerpo: {"detail": [{"type": "missing", "loc": ["body", "genero_id"], ...}]}
+POST {{base}}/libros
+Content-Type: application/json
+
+{
+  "isbn": "978-84-376-0495-1",
+  "titulo": "Sin genero",
+  "precio": "15.00",
+  "stock_inicial": 5,
   "editorial_id": 1
+}
+
+### POST rol invalido (422)
+# Esperado: HTTP/1.1 422 Unprocessable Entity
+# Cuerpo: {"detail": [{"type": "literal_error", "loc": ["body", "autores", 0, "rol"], ...}]}
+POST {{base}}/libros
+Content-Type: application/json
+
+{
+  "isbn": "978-84-376-0495-2",
+  "titulo": "Rol invalido",
+  "precio": "15.00",
+  "stock_inicial": 5,
+  "editorial_id": 1,
+  "genero_id": 1,
+  "autores": [
+    { "autor_id": 1, "rol": "editor", "orden": 1 }
+  ]
+}
+
+### POST orden invalido (422)
+# Esperado: HTTP/1.1 422 Unprocessable Entity
+# Cuerpo: {"detail": [{"type": "greater_than_equal", "loc": ["body", "autores", 0, "orden"], ...}]}
+POST {{base}}/libros
+Content-Type: application/json
+
+{
+  "isbn": "978-84-376-0495-3",
+  "titulo": "Orden invalido",
+  "precio": "15.00",
+  "stock_inicial": 5,
+  "editorial_id": 1,
+  "genero_id": 1,
+  "autores": [
+    { "autor_id": 1, "rol": "autor", "orden": 0 }
+  ]
 }
 
 ### GET lista con pagina fuera de rango (422)

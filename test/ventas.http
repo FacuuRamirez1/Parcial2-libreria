@@ -1,44 +1,123 @@
 @base = http://127.0.0.1:8000
 
-### POST crear venta (201 con total calculado)
+### POST crear venta con dos renglones (201 con total, subtotales y titulo)
 # Esperado: HTTP/1.1 201 Created
-# Cuerpo: {"id": 1, "cliente_id": 1, "fecha": "2026-01-01T00:00:00Z", "total": "50.00", "renglones": [{"libro_id": 1, "cantidad": 2, "precio_unitario": "25.00", "subtotal": "50.00"}]}
+# Cuerpo: {"id": 1, "cliente_id": 1, "fecha": "2026-01-01T00:00:00Z", "total": "60.50", "renglones": [
+#   {"libro_id": 1, "titulo": "Cien anos de soledad", "cantidad": 2, "precio_unitario": "25.00", "subtotal": "50.00"},
+#   {"libro_id": 2, "titulo": "El principito", "cantidad": 1, "precio_unitario": "10.50", "subtotal": "10.50"}
+# ]}
+# Nota: la fecha y el total los calcula el servidor; precio_unitario se copia del libro.
 POST {{base}}/ventas
 Content-Type: application/json
 
 {
   "cliente_id": 1,
   "renglones": [
-    {
-      "libro_id": 1,
-      "cantidad": 2
-    }
+    { "libro_id": 1, "cantidad": 2 },
+    { "libro_id": 2, "cantidad": 1 }
   ]
 }
 
-### GET lista ventas (200 paginado)
+### GET venta por id posterior al alta (200, evidencia la persistencia)
 # Esperado: HTTP/1.1 200 OK
-# Cuerpo: {"items": [...], "total": 1, "page": 1, "size": 20, "pages": 1}
-GET {{base}}/ventas?page=1&size=20
-
-### GET venta por id existente (200)
-# Esperado: HTTP/1.1 200 OK
-# Cuerpo: {"id": 1, "cliente_id": 1, "fecha": "2026-01-01T00:00:00Z", "total": "50.00", "renglones": [...]}
+# Cuerpo: {"id": 1, "cliente_id": 1, "fecha": "2026-01-01T00:00:00Z", "total": "60.50", "renglones": [
+#   {"libro_id": 1, "titulo": "Cien anos de soledad", "cantidad": 2, "precio_unitario": "25.00", "subtotal": "50.00"},
+#   {"libro_id": 2, "titulo": "El principito", "cantidad": 1, "precio_unitario": "10.50", "subtotal": "10.50"}
+# ]}
 GET {{base}}/ventas/1
 
-### POST con precio_unitario en entrada (422)
+### GET lista ventas (200 paginado con titulo en cada renglon)
+# Esperado: HTTP/1.1 200 OK
+# Cuerpo: {"items": [{"id": 1, "cliente_id": 1, "fecha": "...", "total": "60.50", "renglones": [{"libro_id": 1, "titulo": "Cien anos de soledad", "cantidad": 2, "precio_unitario": "25.00", "subtotal": "50.00"}, ...]}], "total": 1, "page": 1, "size": 20, "pages": 1}
+GET {{base}}/ventas?page=1&size=20
+
+### POST venta sin renglones (422)
 # Esperado: HTTP/1.1 422 Unprocessable Entity
-# Cuerpo: {"detail": [...]}
+# Cuerpo: {"detail": [{"type": "value_error", "loc": ["body"], "msg": "Value error, La venta debe tener al menos un renglon", ...}]}
+POST {{base}}/ventas
+Content-Type: application/json
+
+{
+  "cliente_id": 1,
+  "renglones": []
+}
+
+### POST con libro repetido (422)
+# Esperado: HTTP/1.1 422 Unprocessable Entity
+# Cuerpo: {"detail": [{"type": "value_error", "loc": ["body"], "msg": "Value error, No se puede repetir un mismo libro en los renglones", ...}]}
 POST {{base}}/ventas
 Content-Type: application/json
 
 {
   "cliente_id": 1,
   "renglones": [
-    {
-      "libro_id": 1,
-      "cantidad": 2,
-      "precio_unitario": "10.00"
-    }
+    { "libro_id": 1, "cantidad": 1 },
+    { "libro_id": 1, "cantidad": 2 }
+  ]
+}
+
+### POST con cantidad no positiva (422)
+# Esperado: HTTP/1.1 422 Unprocessable Entity
+# Cuerpo: {"detail": [{"type": "greater_than", "loc": ["body", "renglones", 0, "cantidad"], ...}]}
+POST {{base}}/ventas
+Content-Type: application/json
+
+{
+  "cliente_id": 1,
+  "renglones": [
+    { "libro_id": 1, "cantidad": 0 }
+  ]
+}
+
+### POST con precio_unitario en entrada (422)
+# Esperado: HTTP/1.1 422 Unprocessable Entity
+# Cuerpo: {"detail": [{"type": "extra_forbidden", "loc": ["body", "renglones", 0, "precio_unitario"], ...}]}
+POST {{base}}/ventas
+Content-Type: application/json
+
+{
+  "cliente_id": 1,
+  "renglones": [
+    { "libro_id": 1, "cantidad": 2, "precio_unitario": "10.00" }
+  ]
+}
+
+### POST con total en la entrada (422)
+# Esperado: HTTP/1.1 422 Unprocessable Entity
+# Cuerpo: {"detail": [{"type": "extra_forbidden", "loc": ["body", "total"], ...}]}
+POST {{base}}/ventas
+Content-Type: application/json
+
+{
+  "cliente_id": 1,
+  "total": "50.00",
+  "renglones": [
+    { "libro_id": 1, "cantidad": 2 }
+  ]
+}
+
+### POST con cliente inexistente (409, sin filas nuevas)
+# Esperado: HTTP/1.1 409 Conflict
+# Cuerpo: {"detail": "Conflicto de integridad: registro duplicado o referencia inválida"}
+POST {{base}}/ventas
+Content-Type: application/json
+
+{
+  "cliente_id": 999999,
+  "renglones": [
+    { "libro_id": 1, "cantidad": 1 }
+  ]
+}
+
+### POST con libro inexistente (409, sin filas nuevas)
+# Esperado: HTTP/1.1 409 Conflict
+# Cuerpo: {"detail": "Libro no encontrado"}
+POST {{base}}/ventas
+Content-Type: application/json
+
+{
+  "cliente_id": 1,
+  "renglones": [
+    { "libro_id": 999999, "cantidad": 1 }
   ]
 }

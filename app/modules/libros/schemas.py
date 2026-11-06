@@ -2,8 +2,18 @@
 
 from datetime import datetime
 from decimal import Decimal
-from pydantic import ConfigDict, Field
+from typing import Literal
+
+from pydantic import ConfigDict, Field, model_validator
 from sqlmodel import SQLModel
+
+
+class LibroAutorCreate(SQLModel):
+    model_config = ConfigDict(extra="forbid")
+
+    autor_id: int
+    rol: Literal["autor", "coautor", "traductor", "ilustrador"]
+    orden: int = Field(ge=1)
 
 
 class LibroCreate(SQLModel):
@@ -11,10 +21,18 @@ class LibroCreate(SQLModel):
 
     isbn: str = Field(max_length=17)
     titulo: str = Field(max_length=255)
-    precio: Decimal
-    stock_inicial: int
+    precio: Decimal = Field(gt=0)
+    stock_inicial: int = Field(ge=0)
     editorial_id: int
-    genero_id: int | None = Field(default=None)
+    genero_id: int
+    autores: list[LibroAutorCreate] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validar_autores_unicos(self) -> "LibroCreate":
+        ids = [autor.autor_id for autor in self.autores]
+        if len(ids) != len(set(ids)):
+            raise ValueError("No se puede repetir un mismo autor en el mismo libro")
+        return self
 
 
 class LibroUpdate(SQLModel):

@@ -2,9 +2,8 @@
 
 from datetime import datetime
 from decimal import Decimal
-from typing import Annotated
 
-from pydantic import ConfigDict, Field
+from pydantic import ConfigDict, Field, model_validator
 from sqlmodel import SQLModel
 
 
@@ -21,11 +20,21 @@ class VentaCreate(SQLModel):
     cliente_id: int
     renglones: list[RenglonVentaCreate]
 
+    @model_validator(mode="after")
+    def validar_renglones(self) -> "VentaCreate":
+        if not self.renglones:
+            raise ValueError("La venta debe tener al menos un renglón")
+        ids = [renglon.libro_id for renglon in self.renglones]
+        if len(ids) != len(set(ids)):
+            raise ValueError("No se puede repetir un mismo libro en los renglones")
+        return self
+
 
 class RenglonVentaRead(SQLModel):
     model_config = ConfigDict(from_attributes=True)
 
     libro_id: int
+    titulo: str
     cantidad: int
     precio_unitario: Decimal
     subtotal: Decimal

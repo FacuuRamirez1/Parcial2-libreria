@@ -17,6 +17,15 @@ API en FastAPI + SQLModel + PostgreSQL (asincrónica).
 
 Variables de entorno: `DATABASE_URL` (obligatoria, driver `postgresql+asyncpg`) y `SQL_ECHO` (`true` muestra el SQL en consola).
 
+## Pruebas automatizadas
+
+1. Instalar las dependencias de desarrollo: `pip install -r requirements-dev.txt`.
+2. Definir `TEST_DATABASE_URL` apuntando a una base PostgreSQL 16 **dedicada a tests** (si no se define, se usa `DATABASE_URL`). Debe usar el driver `postgresql+asyncpg`, por ejemplo:
+   ```
+   set TEST_DATABASE_URL=postgresql+asyncpg://usuario:clave@localhost:5432/libreria_test
+   ```
+3. Ejecutar `pytest`. El esquema se crea automáticamente con `alembic upgrade head` y las tablas de dominio se limpian entre tests; nunca se usa `create_all`.
+
 ## Pendiente
 
 - `alembic upgrade head` para crear el esquema (change C-03).

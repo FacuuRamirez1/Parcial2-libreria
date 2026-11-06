@@ -150,7 +150,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06* / C-07*
   - `knowledge-base/08_arquitectura_propuesta.md` §Seguridad
 
 ### [C-05] `altas-con-relaciones`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` archivado
 - **Scope** (Ejercicio 5; US-006, US-007, US-008):
   - `POST /libros/` con `editorial_id`, `genero_id`, `autores[{autor_id, rol, orden}]`: crea `Libro` + `LibroAutor` en una transacción, sin `if` de existencia previa; FK/ISBN/CHECK rechazado → 409 con mensaje propio
   - `POST /clientes/{id}/perfil`: segundo perfil → 409 por UNIQUE (RN-09)
@@ -213,6 +213,6 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06* / C-07*
 | C-02 | modelos-restricciones-relaciones | 2 (25) | C-01 | CRITICO | `[x]` |
 | C-03 | migraciones-alembic | 3 (10) | C-02 | ALTO | `[x]` |
 | C-04 | contratos-crud | 4 (15) | C-03 | MEDIO | `[x]` |
-| C-05 | altas-con-relaciones | 5 (20) | C-04 | ALTO | `[ ]` |
+| C-05 | altas-con-relaciones | 5 (20) | C-04 | ALTO | `[x]` |
 | C-06 | lecturas-sin-n-mas-uno | 6 (10) | C-05 | MEDIO | `[ ]` |
 | C-07 | asincronia-sin-bloqueos | 7 (10) | C-05 | MEDIO | `[ ]` |

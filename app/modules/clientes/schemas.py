@@ -34,7 +34,7 @@ class PerfilClienteCreate(SQLModel):
 
     telefono: str = Field(max_length=30)
     direccion: str = Field(max_length=255)
-    cliente_id: int
+    cliente_id: int | None = Field(default=None)
 
 
 class PerfilClienteRead(SQLModel):

@@ -1,6 +1,5 @@
 """Lógica de negocio del módulo ventas."""
 
-from datetime import UTC, datetime
 from decimal import Decimal
 
 from fastapi import HTTPException
@@ -9,6 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.database import SessionDep
 from app.core.paginacion import PaginatedResponse, calcular_paginas, verificar_pagina_valida
+from app.core.unit_of_work import UnitOfWork
 from app.modules.libros.models import Libro
 from app.modules.ventas.models import RenglonVenta, Venta
 from app.modules.ventas.repository import VentaRepository
@@ -18,59 +18,73 @@ from app.modules.ventas.schemas import (
     VentaRead,
 )
 
+CENTAVOS = Decimal("0.01")
+
+
+def _calcular_subtotal(precio_unitario: Decimal, cantidad: int) -> Decimal:
+    return (precio_unitario * cantidad).quantize(CENTAVOS)
+
+
+def _a_renglon_read(
+    libro_id: int, titulo: str, cantidad: int, precio_unitario: Decimal
+) -> RenglonVentaRead:
+    return RenglonVentaRead(
+        libro_id=libro_id,
+        titulo=titulo,
+        cantidad=cantidad,
+        precio_unitario=precio_unitario,
+        subtotal=_calcular_subtotal(precio_unitario, cantidad),
+    )
+
 
 async def crear_venta(session: SessionDep, datos: VentaCreate) -> VentaRead:
-    if not datos.renglones:
-        raise HTTPException(status_code=400, detail="La venta debe tener al menos un renglón")
+    """Crea la venta y sus renglones en una única transacción.
 
-    libro_ids = [r.libro_id for r in datos.renglones]
-    if len(set(libro_ids)) != len(libro_ids):
-        raise HTTPException(status_code=409, detail="Libro repetido en los renglones de la venta")
-
-    # RN-06: leer el precio de cada libro y copiarlo como precio_unitario.
+    La validación de renglones (no vacío, sin libro repetido, cantidad > 0) ya
+    la hizo el DTO. Se leen los precios en una sola consulta (RN-06) y se deja
+    que la FK rechace un cliente inexistente (409 vía handler global).
+    """
+    libro_ids = [renglon.libro_id for renglon in datos.renglones]
     resultado = await session.exec(select(Libro).where(Libro.id.in_(libro_ids)))
     libros = {libro.id: libro for libro in resultado.all()}
     for renglon in datos.renglones:
         if libros.get(renglon.libro_id) is None:
-            raise HTTPException(
-                status_code=409, detail=f"Libro {renglon.libro_id} no encontrado"
-            )
+            raise HTTPException(status_code=409, detail="Libro no encontrado")
 
     total = sum(
-        (libros[r.libro_id].precio * r.cantidad for r in datos.renglones),
+        (_calcular_subtotal(libros[r.libro_id].precio, r.cantidad) for r in datos.renglones),
         Decimal("0"),
-    ).quantize(Decimal("0.01"))
+    ).quantize(CENTAVOS)
 
     repo = VentaRepository(session, Venta)
-    venta = Venta(cliente_id=datos.cliente_id, total=total)
-    await repo.add(venta)  # flush: asigna id y rechaza (409) cliente inexistente vía FK
+    async with UnitOfWork(session):
+        venta = Venta(cliente_id=datos.cliente_id, total=total)
+        await repo.add(venta)  # flush: asigna id y la FK rechaza cliente inexistente
+        for renglon in datos.renglones:
+            libro = libros[renglon.libro_id]
+            session.add(
+                RenglonVenta(
+                    venta_id=venta.id,
+                    libro_id=renglon.libro_id,
+                    cantidad=renglon.cantidad,
+                    precio_unitario=libro.precio,
+                )
+            )
+        await session.flush()
 
-    renglones_creados: list[RenglonVenta] = []
-    for renglon in datos.renglones:
-        libro = libros[renglon.libro_id]
-        r = RenglonVenta(
-            venta_id=venta.id,
-            libro_id=renglon.libro_id,
-            cantidad=renglon.cantidad,
-            precio_unitario=libro.precio,
-        )
-        await repo.add(r)
-        renglones_creados.append(r)
-
-    # Sin commit: la transacción la gestiona quien crea la sesión.
     return VentaRead(
         id=venta.id,
         cliente_id=venta.cliente_id,
         fecha=venta.fecha,
         total=venta.total,
         renglones=[
-            RenglonVentaRead(
-                libro_id=r.libro_id,
-                cantidad=r.cantidad,
-                precio_unitario=r.precio_unitario,
-                subtotal=r.precio_unitario * r.cantidad,
+            _a_renglon_read(
+                libro_id=renglon.libro_id,
+                titulo=libros[renglon.libro_id].titulo,
+                cantidad=renglon.cantidad,
+                precio_unitario=libros[renglon.libro_id].precio,
             )
-            for r in renglones_creados
+            for renglon in datos.renglones
         ],
     )
 
@@ -86,7 +100,7 @@ async def obtener_ventas(
     offset = (page - 1) * size
     statement = (
         select(Venta)
-        .options(selectinload(Venta.renglones))
+        .options(selectinload(Venta.renglones).joinedload(RenglonVenta.libro))
         .offset(offset)
         .limit(size)
     )
@@ -101,11 +115,11 @@ async def obtener_ventas(
                 fecha=v.fecha,
                 total=v.total,
                 renglones=[
-                    RenglonVentaRead(
+                    _a_renglon_read(
                         libro_id=r.libro_id,
+                        titulo=r.libro.titulo,
                         cantidad=r.cantidad,
                         precio_unitario=r.precio_unitario,
-                        subtotal=r.precio_unitario * r.cantidad,
                     )
                     for r in v.renglones
                 ],
@@ -130,11 +144,11 @@ async def obtener_venta_por_id(session: SessionDep, id: int) -> VentaRead:
         fecha=venta.fecha,
         total=venta.total,
         renglones=[
-            RenglonVentaRead(
+            _a_renglon_read(
                 libro_id=r.libro_id,
+                titulo=r.libro.titulo,
                 cantidad=r.cantidad,
                 precio_unitario=r.precio_unitario,
-                subtotal=r.precio_unitario * r.cantidad,
             )
             for r in venta.renglones
         ],
