@@ -1,0 +1,44 @@
+@base = http://127.0.0.1:8000
+
+### POST crear venta (201 con total calculado)
+# Esperado: HTTP/1.1 201 Created
+# Cuerpo: {"id": 1, "cliente_id": 1, "fecha": "2026-01-01T00:00:00Z", "total": "50.00", "renglones": [{"libro_id": 1, "cantidad": 2, "precio_unitario": "25.00", "subtotal": "50.00"}]}
+POST {{base}}/ventas
+Content-Type: application/json
+
+{
+  "cliente_id": 1,
+  "renglones": [
+    {
+      "libro_id": 1,
+      "cantidad": 2
+    }
+  ]
+}
+
+### GET lista ventas (200 paginado)
+# Esperado: HTTP/1.1 200 OK
+# Cuerpo: {"items": [...], "total": 1, "page": 1, "size": 20, "pages": 1}
+GET {{base}}/ventas?page=1&size=20
+
+### GET venta por id existente (200)
+# Esperado: HTTP/1.1 200 OK
+# Cuerpo: {"id": 1, "cliente_id": 1, "fecha": "2026-01-01T00:00:00Z", "total": "50.00", "renglones": [...]}
+GET {{base}}/ventas/1
+
+### POST con precio_unitario en entrada (422)
+# Esperado: HTTP/1.1 422 Unprocessable Entity
+# Cuerpo: {"detail": [...]}
+POST {{base}}/ventas
+Content-Type: application/json
+
+{
+  "cliente_id": 1,
+  "renglones": [
+    {
+      "libro_id": 1,
+      "cantidad": 2,
+      "precio_unitario": "10.00"
+    }
+  ]
+}

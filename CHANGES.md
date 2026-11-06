@@ -112,7 +112,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06* / C-07*
   - `knowledge-base/09_decisiones_y_supuestos.md` §DD-05, §DD-06
 
 ### [C-03] `migraciones-alembic`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` archivado
 - **Scope** (Ejercicio 3; US-004):
   - Alembic con plantilla async (`alembic init -t async`); URL tomada del entorno, sin credenciales en `alembic.ini`; `env.py` apunta a `SQLModel.metadata` e importa todos los modelos
   - Migración 001 (`--autogenerate`): todas las tablas excepto `genero` y sin `libro.genero_id` (se autogenera con `Genero` y `genero_id` temporalmente fuera del metadata)
@@ -133,7 +133,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06* / C-07*
 ## FASE 3 — API
 
 ### [C-04] `contratos-crud`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` archivado
 - **Scope** (Ejercicio 4; US-005):
   - DTO `Create/Update/Read` separados de los modelos de tabla (altas sin `id`) en editoriales, géneros, autores, libros y clientes
   - Endpoints: `POST`, `GET` (lista), `GET {id}`, `PATCH {id}` por recurso; PATCH con `exclude_unset`; sin PATCH de ventas
@@ -211,8 +211,8 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06* / C-07*
 |----|--------|-----------------|------------|------------|--------|
 | C-01 | proyecto-conexion-ciclo-vida | 1 (10) | — | BAJO | `[x]` |
 | C-02 | modelos-restricciones-relaciones | 2 (25) | C-01 | CRITICO | `[x]` |
-| C-03 | migraciones-alembic | 3 (10) | C-02 | ALTO | `[ ]` |
-| C-04 | contratos-crud | 4 (15) | C-03 | MEDIO | `[ ]` |
+| C-03 | migraciones-alembic | 3 (10) | C-02 | ALTO | `[x]` |
+| C-04 | contratos-crud | 4 (15) | C-03 | MEDIO | `[x]` |
 | C-05 | altas-con-relaciones | 5 (20) | C-04 | ALTO | `[ ]` |
 | C-06 | lecturas-sin-n-mas-uno | 6 (10) | C-05 | MEDIO | `[ ]` |
 | C-07 | asincronia-sin-bloqueos | 7 (10) | C-05 | MEDIO | `[ ]` |

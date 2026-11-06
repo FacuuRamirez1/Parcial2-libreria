@@ -1,0 +1,57 @@
+@base = http://127.0.0.1:8000
+
+### POST crear genero (201)
+# Esperado: HTTP/1.1 201 Created
+# Cuerpo: {"id": 1, "nombre": "Novela"}
+POST {{base}}/generos
+Content-Type: application/json
+
+{
+  "nombre": "Novela"
+}
+
+### GET lista generos (200 paginado)
+# Esperado: HTTP/1.1 200 OK
+# Cuerpo: {"items": [...], "total": 1, "page": 1, "size": 20, "pages": 1}
+GET {{base}}/generos?page=1&size=20
+
+### GET genero por id existente (200)
+# Esperado: HTTP/1.1 200 OK
+# Cuerpo: {"id": 1, "nombre": "Novela"}
+GET {{base}}/generos/1
+
+### GET genero por id inexistente (404)
+# Esperado: HTTP/1.1 404 Not Found
+# Cuerpo: {"detail": "Genero no encontrado"}
+GET {{base}}/generos/999999
+
+### PATCH genero (200)
+# Esperado: HTTP/1.1 200 OK
+# Cuerpo: {"id": 1, "nombre": "Ficcion"}
+PATCH {{base}}/generos/1
+Content-Type: application/json
+
+{
+  "nombre": "Ficcion"
+}
+
+### POST con campo extra (422)
+# Esperado: HTTP/1.1 422 Unprocessable Entity
+# Cuerpo: {"detail": [...]}
+POST {{base}}/generos
+Content-Type: application/json
+
+{
+  "nombre": "Poesia",
+  "campo_extra": "no permitido"
+}
+
+### POST nombre duplicado (409)
+# Esperado: HTTP/1.1 409 Conflict
+# Cuerpo: {"detail": "Ya existe un genero con ese nombre"}
+POST {{base}}/generos
+Content-Type: application/json
+
+{
+  "nombre": "Ficcion"
+}

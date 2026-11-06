@@ -1,0 +1,49 @@
+@base = http://127.0.0.1:8000
+
+### POST crear autor (201)
+# Esperado: HTTP/1.1 201 Created
+# Cuerpo: {"id": 1, "nombre": "Gabriel Garcia Marquez", "nacionalidad": "Colombia"}
+POST {{base}}/autores
+Content-Type: application/json
+
+{
+  "nombre": "Gabriel Garcia Marquez",
+  "nacionalidad": "Colombia"
+}
+
+### GET lista autores (200 paginado)
+# Esperado: HTTP/1.1 200 OK
+# Cuerpo: {"items": [...], "total": 1, "page": 1, "size": 20, "pages": 1}
+GET {{base}}/autores?page=1&size=20
+
+### GET autor por id existente (200)
+# Esperado: HTTP/1.1 200 OK
+# Cuerpo: {"id": 1, "nombre": "Gabriel Garcia Marquez", "nacionalidad": "Colombia"}
+GET {{base}}/autores/1
+
+### GET autor por id inexistente (404)
+# Esperado: HTTP/1.1 404 Not Found
+# Cuerpo: {"detail": "Autor no encontrado"}
+GET {{base}}/autores/999999
+
+### PATCH autor (200)
+# Esperado: HTTP/1.1 200 OK
+# Cuerpo: {"id": 1, "nombre": "Gabriel Garcia Marquez", "nacionalidad": "Colombia"}
+PATCH {{base}}/autores/1
+Content-Type: application/json
+
+{
+  "nacionalidad": "Colombia"
+}
+
+### POST con campo extra (422)
+# Esperado: HTTP/1.1 422 Unprocessable Entity
+# Cuerpo: {"detail": [...]}
+POST {{base}}/autores
+Content-Type: application/json
+
+{
+  "nombre": "Jorge Luis Borges",
+  "nacionalidad": "Argentina",
+  "campo_extra": "no permitido"
+}

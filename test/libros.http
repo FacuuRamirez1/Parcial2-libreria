@@ -1,0 +1,60 @@
+@base = http://127.0.0.1:8000
+
+### POST crear libro con stock_inicial (201)
+# Esperado: HTTP/1.1 201 Created
+# Cuerpo: {"id": 1, "isbn": "978-84-376-0494-7", "titulo": "Cien anos de soledad", "precio": "25.00", "stock": 10, "borrado_en": null, "editorial_id": 1, "genero_id": 1}
+POST {{base}}/libros
+Content-Type: application/json
+
+{
+  "isbn": "978-84-376-0494-7",
+  "titulo": "Cien anos de soledad",
+  "precio": "25.00",
+  "stock_inicial": 10,
+  "editorial_id": 1,
+  "genero_id": 1
+}
+
+### GET lista libros (200 paginado)
+# Esperado: HTTP/1.1 200 OK
+# Cuerpo: {"items": [...], "total": 1, "page": 1, "size": 20, "pages": 1}
+GET {{base}}/libros?page=1&size=20
+
+### GET libro por id existente (200)
+# Esperado: HTTP/1.1 200 OK
+# Cuerpo: {"id": 1, "isbn": "978-84-376-0494-7", "titulo": "Cien anos de soledad", "precio": "25.00", "stock": 10, "borrado_en": null, "editorial_id": 1, "genero_id": 1}
+GET {{base}}/libros/1
+
+### PATCH libro sin stock (200)
+# Esperado: HTTP/1.1 200 OK
+# Cuerpo: {"id": 1, "isbn": "978-84-376-0494-7", "titulo": "Cien anos de soledad (edicion especial)", "precio": "25.00", "stock": 10, "borrado_en": null, "editorial_id": 1, "genero_id": 1}
+PATCH {{base}}/libros/1
+Content-Type: application/json
+
+{
+  "titulo": "Cien anos de soledad (edicion especial)"
+}
+
+### DELETE libro por id (204)
+# Esperado: HTTP/1.1 204 No Content
+# Cuerpo: (vacio)
+DELETE {{base}}/libros/1
+
+### POST ISBN duplicado (409)
+# Esperado: HTTP/1.1 409 Conflict
+# Cuerpo: {"detail": "Ya existe un libro con ese ISBN no borrado"}
+POST {{base}}/libros
+Content-Type: application/json
+
+{
+  "isbn": "978-84-376-0494-7",
+  "titulo": "Otro libro",
+  "precio": "15.00",
+  "stock_inicial": 5,
+  "editorial_id": 1
+}
+
+### GET lista con pagina fuera de rango (422)
+# Esperado: HTTP/1.1 422 Unprocessable Entity
+# Cuerpo: {"detail": "Pagina fuera de rango"}
+GET {{base}}/libros?page=999999&size=20

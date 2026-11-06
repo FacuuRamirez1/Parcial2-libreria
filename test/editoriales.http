@@ -1,0 +1,60 @@
+@base = http://127.0.0.1:8000
+
+### POST crear editorial (201)
+# Esperado: HTTP/1.1 201 Created
+# Cuerpo: {"id": 1, "nombre": "Planeta", "pais": "España"}
+POST {{base}}/editoriales
+Content-Type: application/json
+
+{
+  "nombre": "Planeta",
+  "pais": "España"
+}
+
+### GET lista editoriales (200 paginado)
+# Esperado: HTTP/1.1 200 OK
+# Cuerpo: {"items": [...], "total": 1, "page": 1, "size": 20, "pages": 1}
+GET {{base}}/editoriales?page=1&size=20
+
+### GET editorial por id existente (200)
+# Esperado: HTTP/1.1 200 OK
+# Cuerpo: {"id": 1, "nombre": "Planeta", "pais": "España"}
+GET {{base}}/editoriales/1
+
+### GET editorial por id inexistente (404)
+# Esperado: HTTP/1.1 404 Not Found
+# Cuerpo: {"detail": "Editorial no encontrada"}
+GET {{base}}/editoriales/999999
+
+### PATCH editorial (200)
+# Esperado: HTTP/1.1 200 OK
+# Cuerpo: {"id": 1, "nombre": "Planeta Grupo", "pais": "España"}
+PATCH {{base}}/editoriales/1
+Content-Type: application/json
+
+{
+  "nombre": "Planeta Grupo"
+}
+
+### POST con campo extra (422)
+# Esperado: HTTP/1.1 422 Unprocessable Entity
+# Cuerpo: {"detail": [...]}
+POST {{base}}/editoriales
+Content-Type: application/json
+
+{
+  "nombre": "Anagrama",
+  "pais": "España",
+  "campo_extra": "no permitido"
+}
+
+### POST nombre duplicado (409)
+# Esperado: HTTP/1.1 409 Conflict
+# Cuerpo: {"detail": "Ya existe una editorial con ese nombre"}
+POST {{base}}/editoriales
+Content-Type: application/json
+
+{
+  "nombre": "Planeta Grupo",
+  "pais": "España"
+}
