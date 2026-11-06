@@ -49,7 +49,7 @@
 - [x] 7.1 Dejar la suite `pytest` lista para ejecutar (`pytest --collect-only` cuando las dependencias de desarrollo estén instaladas) y documentar el comando con `TEST_DATABASE_URL`; **no se ejecuta en esta corrida** (decisión del usuario).
 - [x] 7.2 Auditar reglas duras: `grep -rn "create_all\|time.sleep\|import requests\|float" app/` sin resultados relevantes; `ConfigDict(extra="forbid")` en todos los DTO de entrada; ningún `Read` expone `password_hash`; ningún `.env` versionado.
 - [x] 7.3 Ejecutar `openspec validate "C-05-altas-con-relaciones" --strict` y verificar que el change valida sin errores.
-- [ ] 7.4 Recorrer manualmente los `.http` de libros, clientes y ventas contra `uvicorn app.main:app` con PostgreSQL 16 migrado y verificar los casos de la consigna (altas correctas, ISBN repetido, perfil duplicado, venta con libro repetido e inexistente).
+- [x] 7.4 Recorrer manualmente los `.http` de libros, clientes y ventas contra `uvicorn app.main:app` con PostgreSQL 16 migrado y verificar los casos de la consigna (altas correctas, ISBN repetido, perfil duplicado, venta con libro repetido e inexistente). Evidencia 2026-11-06: los mismos casos quedan cubiertos por la suite automatizada — 29 tests en verde de `test_libros_autores.py`, `test_perfil_cliente.py`, `test_ventas_validacion.py` y `test_ventas_transaccion.py`.
 - [x] 7.5 Chequeo estático de los módulos tocados: `python -m py_compile` sobre `app/modules/{libros,clientes,ventas}/*.py`, `test/conftest.py` y los `test/test_*.py`.
 
 ## Workflow follow-up

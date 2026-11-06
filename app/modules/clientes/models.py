@@ -18,7 +18,7 @@ class Cliente(SQLModel, table=True):
     nombre: str = Field(max_length=120)
     email: str = Field(max_length=254, unique=True)
     usuario_id: int | None = Field(
-        default=None, foreign_key="usuario.id", unique=True, index=True
+        default=None, foreign_key="usuario.id", unique=True
     )
 
     perfil: Optional["PerfilCliente"] = Relationship(
