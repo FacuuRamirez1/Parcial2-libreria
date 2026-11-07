@@ -9,7 +9,6 @@ class ClienteCreate(SQLModel):
 
     nombre: str = Field(max_length=120)
     email: str = Field(max_length=254)
-    usuario_id: int | None = Field(default=None)
 
 
 class ClienteUpdate(SQLModel):
@@ -17,7 +16,6 @@ class ClienteUpdate(SQLModel):
 
     nombre: str | None = Field(default=None, max_length=120)
     email: str | None = Field(default=None, max_length=254)
-    usuario_id: int | None = Field(default=None)
 
 
 class ClienteRead(SQLModel):
@@ -26,7 +24,6 @@ class ClienteRead(SQLModel):
     id: int
     nombre: str
     email: str
-    usuario_id: int | None = None
 
 
 class PerfilClienteCreate(SQLModel):
@@ -34,7 +31,6 @@ class PerfilClienteCreate(SQLModel):
 
     telefono: str = Field(max_length=30)
     direccion: str = Field(max_length=255)
-    cliente_id: int | None = Field(default=None)
 
 
 class PerfilClienteRead(SQLModel):
@@ -44,3 +40,9 @@ class PerfilClienteRead(SQLModel):
     telefono: str
     direccion: str
     cliente_id: int
+
+
+class ClienteDetalleRead(ClienteRead):
+    """Cliente con su perfil (objeto o `null`, nunca una lista)."""
+
+    perfil: PerfilClienteRead | None = None

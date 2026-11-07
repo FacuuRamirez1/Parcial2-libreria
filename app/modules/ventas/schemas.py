@@ -6,8 +6,12 @@ from decimal import Decimal
 from pydantic import ConfigDict, Field, model_validator
 from sqlmodel import SQLModel
 
+from app.modules.clientes.schemas import ClienteRead
+
 
 class RenglonVentaCreate(SQLModel):
+    """Datos del renglón (composición): el precio nunca viaja, lo copia el servidor."""
+
     model_config = ConfigDict(extra="forbid")
 
     libro_id: int
@@ -15,6 +19,8 @@ class RenglonVentaCreate(SQLModel):
 
 
 class VentaCreate(SQLModel):
+    """Alta de venta: id del cliente (asociación) y datos de los renglones."""
+
     model_config = ConfigDict(extra="forbid")
 
     cliente_id: int
@@ -44,7 +50,7 @@ class VentaRead(SQLModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    cliente_id: int
     fecha: datetime
     total: Decimal
+    cliente: ClienteRead
     renglones: list[RenglonVentaRead]

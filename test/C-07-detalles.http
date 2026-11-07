@@ -1,0 +1,31 @@
+@base = http://127.0.0.1:8000
+
+# C-07: detalle de un libro y de una venta sin N+1.
+# Arrancar el servidor con SQL_ECHO=true en el .env y mirar la consola: la cantidad de
+# SELECT es fija y la misma con uno o con varios autores / renglones.
+# Requiere `python scripts/seed.py` y haber ejecutado C-06 (crea la venta 2).
+
+### C-07: detalle del libro 1 (un autor)
+# Esperado: HTTP/1.1 200 OK, con editorial, género y autores. Consola: 2 SELECT
+#   1) libro + editorial + género (joinedload)   2) libro_autor + autor (selectinload + joinedload)
+GET {{base}}/libros/1
+
+### C-07: detalle del libro 3 (tres autores)
+# Esperado: HTTP/1.1 200 OK. Consola: los mismos 2 SELECT que con un solo autor.
+GET {{base}}/libros/3
+
+### C-07: detalle de la venta 1 (dos renglones)
+# Esperado: HTTP/1.1 200 OK, con cliente y renglones. Consola: 2 SELECT
+#   1) venta + cliente (joinedload)   2) renglon_venta + libro (selectinload + joinedload)
+GET {{base}}/ventas/1
+
+### C-07: detalle de la venta 2 (creada en C-06)
+# Esperado: HTTP/1.1 200 OK. Consola: los mismos 2 SELECT.
+GET {{base}}/ventas/2
+
+### C-07: listados con carga anticipada (cantidad fija sin importar cuántas filas)
+# Esperado: HTTP/1.1 200 OK. Consola: 1 SELECT para /libros/ y 2 para /ventas/.
+GET {{base}}/libros/?limit=20&offset=0
+
+###
+GET {{base}}/ventas/?limit=20&offset=0

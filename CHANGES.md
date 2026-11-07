@@ -2,6 +2,7 @@
 
 > Índice canónico de todos los changes del proyecto Parcial2-libreria (API de librería: FastAPI + SQLModel + PostgreSQL 16 + Alembic).
 > Cada change es atómico: un agente puede implementarlo en una sesión (~4-6 horas). Hay exactamente 7 changes, uno por ejercicio de la consigna (DD-01); ninguno se parte ni se fusiona.
+> **Pruebas: todas son archivos `.http` en `test/`** (casos C-01 a C-08 más extras), con la respuesta esperada comentada. No hay tests unitarios, e2e ni pytest.
 > **Leer este archivo antes de ejecutar cualquier `/opsx:propose`.**
 
 ---
@@ -102,7 +103,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06* / C-07*
   - `Relationship(back_populates=...)` en ambos extremos; `Cliente.perfil` devuelve un objeto (uno a uno, `uselist=False`); `LibroAutor` como entidad propia, no `link_model`
   - Dinero con `Decimal` (NUMERIC(10,2) / (12,2)); `venta.fecha` con zona horaria
   - **Debe dejar `Genero` y `Libro.genero_id` (nullable, FK, índice) completamente definidos y aislables** para que C-03 los separe en la 2ª migración autogenerada
-  - Tests: metadata de modelos (constraints/índices presentes), importación sin errores
+  - Pruebas (`.http`): constraints e índices verificados mediante los casos de rechazo (409/422) de `test/*.http` y la revisión de la migración
 - **Dependencias**: `C-01`
 - **Governance**: CRITICO
 - **Leer antes**:
@@ -115,9 +116,8 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06* / C-07*
 - **Estado**: `[x]` archivado
 - **Scope** (Ejercicio 3; US-004):
   - Alembic con plantilla async (`alembic init -t async`); URL tomada del entorno, sin credenciales en `alembic.ini`; `env.py` apunta a `SQLModel.metadata` e importa todos los modelos
-  - Migración 001 (`--autogenerate`): esquema completo de 14 tablas (las 9 de la consigna más `usuario`, `asignacion_rol`, `intento_acceso`, `evento_seguridad` y `movimiento_stock`); incluye `genero` y `libro.genero_id`
-  - Migración 002: función y trigger `trg_movimiento_stock_solo_agregado` (bloquea UPDATE/DELETE en `movimiento_stock`)
-  - Migración 003 (corrección posterior): elimina el índice redundante `ix_cliente_usuario_id` y deja la cabeza actual
+  - Migración 0001 (`--autogenerate`): las 9 tablas de la consigna menos `genero` (y sin `libro.genero_id`)
+  - Migración 0002 (`--autogenerate` sobre la base ya migrada a 0001): agrega `genero` y `libro.genero_id` (nulo, con índice y FK nombrada); cabeza actual de la cadena
   - Revisión manual de cada migración con comentario explicativo; correcciones a mano si hace falta (CHECK, índices, tipos)
   - Verificar: `alembic upgrade head` sobre base vacía; `downgrade -1` + `upgrade head`
   - Script de datos iniciales `scripts/seed.py` (async) para los casos C-01..C-08: completado en C-07 (diferido desde C-03)
@@ -140,7 +140,8 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06* / C-07*
   - Endpoints: `POST`, `GET` (lista), `GET {id}`, `PATCH {id}` por recurso; PATCH con `exclude_unset`; sin PATCH de ventas
   - Códigos: 201 al crear, 404 inexistente, 409 ante `IntegrityError` (ISBN/email/nombre duplicado, CHECK) con mensaje propio, 422 contrato
   - Handler global que traduce `IntegrityError` a 409 sin texto interno de la base (RN-12)
-  - Paginación `limit` 1-100 (def. 20) y `offset >= 0`; `GET /libros/?titulo=` con `ilike` y parámetro ligado (caso C-08: inyección → 200 lista vacía); filtro `genero_id`
+  - Endpoints de relación: `GET /editoriales/{id}/libros`, `GET /generos/{id}/libros`, `GET /autores/{id}/libros` (con rol y orden) y `GET /clientes/{id}/ventas` (404 si el padre no existe)
+  - Paginación `limit` 1-100 (def. 20) y `offset >= 0`, respuesta = lista simple; `GET /libros/?titulo=` con `icontains` (parámetro ligado) (caso C-08: inyección → 200 lista vacía); filtro `genero_id`
   - Archivos `test/*.http` con respuesta esperada comentada
 - **Dependencias**: `C-03`
 - **Governance**: MEDIO
@@ -157,7 +158,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06* / C-07*
   - `POST /clientes/{id}/perfil`: segundo perfil → 409 por UNIQUE (RN-09)
   - `POST /ventas/` con `cliente_id` y `renglones[{libro_id, cantidad}]`: validación 422 (al menos un renglón, sin `libro_id` repetido, `cantidad > 0`); lee precios del libro, copia `precio_unitario`, total `Σ cantidad × precio` con `Decimal` calculado por el servidor, `fecha` del servidor; cliente/libro inexistente → 409; respuesta 201 con cliente y renglones (`titulo`, `precio_unitario`, `subtotal`)
   - Sin PATCH de ventas; el stock no se descuenta (SU-01)
-  - Tests/.http: altas correctas, ISBN repetido, perfil duplicado, venta con libro repetido e inexistente
+  - Pruebas `.http`: altas correctas, ISBN repetido, perfil duplicado, venta con libro repetido e inexistente
 - **Dependencias**: `C-04`
 - **Governance**: ALTO
 - **Leer antes**:
@@ -180,7 +181,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06* / C-07*
   - `GET /ventas/{id}` y respuesta del alta: `joinedload` (cliente) y `selectinload` (renglones → libro)
   - Listados de libros con el detalle precargado; ninguna lectura depende de carga perezosa
   - Cantidad de consultas fija con 1 o N autores/renglones; evidencia C-07 con `SQL_ECHO=true` en consola
-  - Tests: conteo de sentencias SQL constante (event listener de SQLAlchemy) con 1 vs. varios autores/renglones
+  - Pruebas `.http` (`test/C-07-detalles.http`): mismo conteo de sentencias SQL en consola con 1 vs. varios autores/renglones
 - **Dependencias**: `C-05`
 - **Governance**: MEDIO
 - **Leer antes**:

@@ -22,8 +22,6 @@ dist/
 .eggs/
 pip-wheel-metadata/
 
-# Tests y cobertura
-.pytest_cache/
 .coverage
 .coverage.*
 htmlcov/

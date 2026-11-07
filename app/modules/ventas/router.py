@@ -1,15 +1,15 @@
 """Rutas HTTP del módulo ventas."""
 
-from fastapi import APIRouter, BackgroundTasks, Depends, status
+from fastapi import APIRouter, BackgroundTasks, status
 
 from app.core.database import SessionDep
-from app.core.paginacion import PaginatedResponse, get_paginacion
+from app.core.paginacion import PaginacionDep
 from app.modules.ventas.schemas import VentaCreate, VentaRead
 from app.modules.ventas.service import (
     crear_venta,
     enviar_aviso_comprobante,
-    obtener_venta_por_id,
-    obtener_ventas,
+    listar_ventas,
+    obtener_venta,
 )
 
 router = APIRouter(prefix="/ventas", tags=["ventas"])
@@ -19,19 +19,19 @@ router = APIRouter(prefix="/ventas", tags=["ventas"])
 async def crear_venta_endpoint(
     datos: VentaCreate, session: SessionDep, background_tasks: BackgroundTasks
 ) -> VentaRead:
-    venta = await crear_venta(session, datos=datos)
+    venta = await crear_venta(session, datos)
+    # El aviso corre después de enviar la respuesta; si falla, la venta ya existe.
     background_tasks.add_task(enviar_aviso_comprobante, venta.id, venta.total)
     return venta
 
 
-@router.get("/", response_model=PaginatedResponse[VentaRead])
+@router.get("/", response_model=list[VentaRead])
 async def listar_ventas_endpoint(
-    session: SessionDep, pag: tuple[int, int] = Depends(get_paginacion)
-) -> PaginatedResponse[VentaRead]:
-    page, size = pag
-    return await obtener_ventas(session, page=page, size=size)
+    session: SessionDep, pag: PaginacionDep
+) -> list[VentaRead]:
+    return await listar_ventas(session, pag)
 
 
 @router.get("/{id}", response_model=VentaRead)
 async def obtener_venta_endpoint(id: int, session: SessionDep) -> VentaRead:
-    return await obtener_venta_por_id(session, id=id)
+    return await obtener_venta(session, id)

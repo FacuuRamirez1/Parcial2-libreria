@@ -7,11 +7,12 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from sqlalchemy import CheckConstraint
+from sqlalchemy.sql.sqltypes import DateTime
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
     from app.modules.clientes.models import Cliente
-    from app.modules.libros.models import Libro, MovimientoStock
+    from app.modules.libros.models import Libro
 
 
 class Venta(SQLModel, table=True):
@@ -20,7 +21,9 @@ class Venta(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     cliente_id: int = Field(foreign_key="cliente.id", index=True)
-    fecha: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    fecha: datetime = Field(
+        default_factory=lambda: datetime.now(UTC), sa_type=DateTime(timezone=True)
+    )
     total: Decimal = Field(max_digits=12, decimal_places=2)
 
     cliente: "Cliente" = Relationship(
@@ -33,9 +36,6 @@ class Venta(SQLModel, table=True):
             "cascade": "all, delete-orphan",
             "order_by": "RenglonVenta.id",
         },
-    )
-    movimientos_stock: list["MovimientoStock"] = Relationship(
-        back_populates="venta", sa_relationship_kwargs={"lazy": "raise"}
     )
 
 

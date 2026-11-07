@@ -1,56 +1,23 @@
-"""Paginación estándar reutilizable por todos los listados de la API."""
+"""Paginación estándar `limit` / `offset` reutilizable por todos los listados (RN-10)."""
 
-from math import ceil
-from typing import Generic, TypeVar
+from typing import Annotated, NamedTuple
 
-from fastapi import HTTPException, Query
-from pydantic import BaseModel, ConfigDict
-
-T = TypeVar("T")
+from fastapi import Depends, Query
 
 
-def calcular_paginas(total: int, size: int) -> int:
-    """Devuelve 1 si total == 0, otherwise ceil(total / size)."""
-    if total == 0:
-        return 1
-    return ceil(total / size)
-
-
-class PaginatedResponse(BaseModel, Generic[T]):
-    """Respuesta paginada genérica con exactamente los campos requeridos."""
-
-    model_config = ConfigDict(from_attributes=True)
-
-    items: list[T]
-    total: int
-    page: int
-    size: int
-    pages: int
-
-
-def paginar(items: list[T], total: int, page: int, size: int) -> PaginatedResponse[T]:
-    """Construye la respuesta paginada.
-
-    Si total == 0 -> pages = 1, items = [].
-    Si total > 0 y page > pages -> HTTPException 422.
-    """
-    pages = calcular_paginas(total, size)
-    if total > 0 and page > pages:
-        raise HTTPException(status_code=422, detail="Página fuera de rango")
-    if total == 0:
-        return PaginatedResponse(items=[], total=0, page=page, size=size, pages=1)
-    return PaginatedResponse(items=items, total=total, page=page, size=size, pages=pages)
-
-
-def verificar_pagina_valida(page: int, pages: int, total: int) -> None:
-    """Lanza HTTPException 422 cuando la página solicitada está fuera de rango."""
-    if total > 0 and page > pages:
-        raise HTTPException(status_code=422, detail="Página fuera de rango")
+class Paginacion(NamedTuple):
+    limit: int
+    offset: int
 
 
 async def get_paginacion(
-    page: int = Query(1, ge=1, description="Número de página (>= 1)"),
-    size: int = Query(20, ge=1, le=100, description="Tamaño de página (1-100)"),
-) -> tuple[int, int]:
-    """Valida page/size y devuelve la tupla (page, size)."""
-    return page, size
+    limit: Annotated[
+        int, Query(ge=1, le=100, description="Cantidad máxima de elementos (1-100)")
+    ] = 20,
+    offset: Annotated[int, Query(ge=0, description="Elementos a saltear (>= 0)")] = 0,
+) -> Paginacion:
+    """Valida `limit` y `offset`; un valor fuera de rango responde 422."""
+    return Paginacion(limit=limit, offset=offset)
+
+
+PaginacionDep = Annotated[Paginacion, Depends(get_paginacion)]

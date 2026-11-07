@@ -92,6 +92,11 @@ El plan de implementación completo está en [CHANGES.md](CHANGES.md). Resumen:
 - NUNCA renombrar ni quitar tablas o columnas de la consigna → solo se pueden agregar columnas.
 - NUNCA crear changes fuera de los 7 de `CHANGES.md` → un change por ejercicio, sin extras.
 
+### Alcance de la consigna
+- NUNCA agregar repositorios, Unit of Work, autenticación/usuarios, movimientos de stock, borrado lógico ni triggers → la lógica vive en el `service` de cada módulo, que recibe la sesión y hace `commit`/`rollback` explícito.
+- NUNCA exponer rutas fuera de la tabla de endpoints de la consigna (más los `PATCH`/`GET` de apoyo ya existentes).
+- Los listados responden una lista simple paginada con `limit` (1–100, def. 20) y `offset` (≥ 0); el esquema son exactamente dos migraciones (0001 todo menos `genero`; 0002 `genero` + `libro.genero_id`).
+
 ### Universales (no cubiertas por el global)
 - NUNCA buildear ni commitear sin que el usuario lo pida → esperar la orden explícita.
 - Commits convencionales (`feat:`, `fix:`, `chore:`, `docs:`…).

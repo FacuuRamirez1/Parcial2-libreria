@@ -1,58 +1,82 @@
-"""Lógica de negocio del módulo autores."""
+"""Lógica de negocio del módulo autores (recibe la sesión como parámetro)."""
+
+from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import joinedload
+from sqlmodel import select
 
 from app.core.database import SessionDep
-from app.core.paginacion import PaginatedResponse, calcular_paginas, verificar_pagina_valida
+from app.core.paginacion import Paginacion
 from app.modules.autores.models import Autor
 from app.modules.autores.schemas import AutorCreate, AutorRead, AutorUpdate
-from app.core.repository import BaseRepository
+from app.modules.libros.models import LibroAutor
+from app.modules.libros.schemas import LibroDeAutorRead, LibroRead
+
+MENSAJE_NO_ENCONTRADO = "Autor no encontrado"
+
+
+async def _confirmar(session: SessionDep) -> None:
+    """Commit; si la base rechaza la escritura se revierte y el handler responde 409."""
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise
+
+
+async def _obtener(session: SessionDep, id: int) -> Autor:
+    autor = await session.get(Autor, id)
+    if autor is None:
+        raise HTTPException(status_code=404, detail=MENSAJE_NO_ENCONTRADO)
+    return autor
 
 
 async def crear_autor(session: SessionDep, data: AutorCreate) -> AutorRead:
-    repo = BaseRepository(session, Autor)
     autor = Autor(**data.model_dump())
-    await repo.add(autor)
-    await session.commit()
+    session.add(autor)
+    await _confirmar(session)
     return AutorRead.model_validate(autor)
 
 
-async def listar_autores(
-    session: SessionDep, offset: int, limit: int, page: int, size: int
-) -> PaginatedResponse[AutorRead]:
-    repo = BaseRepository(session, Autor)
-    total = await repo.count()
-    items = await repo.get_all(offset=offset, limit=limit)
-    pages = calcular_paginas(total, size)
-    verificar_pagina_valida(page, pages, total)
-    return PaginatedResponse[AutorRead](
-        items=[AutorRead.model_validate(i) for i in items],
-        total=total,
-        page=page,
-        size=size,
-        pages=pages,
+async def listar_autores(session: SessionDep, pag: Paginacion) -> list[AutorRead]:
+    resultado = await session.exec(
+        select(Autor).order_by(Autor.id).offset(pag.offset).limit(pag.limit)
     )
+    return [AutorRead.model_validate(a) for a in resultado.all()]
 
 
 async def obtener_autor(session: SessionDep, id: int) -> AutorRead:
-    repo = BaseRepository(session, Autor)
-    autor = await repo.get_by_id(id)
-    if autor is None:
-        from fastapi import HTTPException
-
-        raise HTTPException(status_code=404, detail="Autor no encontrado")
-    return AutorRead.model_validate(autor)
+    return AutorRead.model_validate(await _obtener(session, id))
 
 
 async def actualizar_autor(
     session: SessionDep, id: int, data: AutorUpdate
 ) -> AutorRead:
-    repo = BaseRepository(session, Autor)
-    autor = await repo.get_by_id(id)
-    if autor is None:
-        from fastapi import HTTPException
-
-        raise HTTPException(status_code=404, detail="Autor no encontrado")
-    for key, value in data.model_dump(exclude_unset=True).items():
-        setattr(autor, key, value)
-    await repo.update(autor)
-    await session.commit()
+    autor = await _obtener(session, id)
+    for campo, valor in data.model_dump(exclude_unset=True).items():
+        setattr(autor, campo, valor)
+    await _confirmar(session)
     return AutorRead.model_validate(autor)
+
+
+async def listar_libros_de_autor(
+    session: SessionDep, id: int, pag: Paginacion
+) -> list[LibroDeAutorRead]:
+    """Libros del autor con el rol y el orden de cada autoría (una sola consulta)."""
+    await _obtener(session, id)
+    resultado = await session.exec(
+        select(LibroAutor)
+        .where(LibroAutor.autor_id == id)
+        .options(joinedload(LibroAutor.libro))
+        .order_by(LibroAutor.libro_id)
+        .offset(pag.offset)
+        .limit(pag.limit)
+    )
+    return [
+        LibroDeAutorRead(
+            **LibroRead.model_validate(autoria.libro).model_dump(),
+            rol=autoria.rol,
+            orden=autoria.orden,
+        )
+        for autoria in resultado.all()
+    ]

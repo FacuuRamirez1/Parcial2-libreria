@@ -1,0 +1,52 @@
+@base = http://127.0.0.1:8000
+
+# C-05: venta con un libro o un cliente inexistente. Requiere `python scripts/seed.py`.
+# Ninguno de los dos casos deja filas en venta ni en renglon_venta.
+
+### C-05: cliente inexistente
+# Esperado: HTTP/1.1 409 Conflict
+# Cuerpo: {"detail": "El cliente o algún libro de la venta no existe"}
+POST {{base}}/ventas/
+Content-Type: application/json
+
+{
+  "cliente_id": 999999,
+  "renglones": [
+    { "libro_id": 1, "cantidad": 1 }
+  ]
+}
+
+### C-05: libro inexistente
+# Esperado: HTTP/1.1 409 Conflict
+# Cuerpo: {"detail": "El cliente o algún libro de la venta no existe"}
+POST {{base}}/ventas/
+Content-Type: application/json
+
+{
+  "cliente_id": 1,
+  "renglones": [
+    { "libro_id": 999999, "cantidad": 1 }
+  ]
+}
+
+### C-05 (contrato): venta sin renglones o con un libro repetido
+# Esperado: HTTP/1.1 422 Unprocessable Entity
+POST {{base}}/ventas/
+Content-Type: application/json
+
+{
+  "cliente_id": 1,
+  "renglones": []
+}
+
+### C-05 (contrato): el precio no viaja en el cuerpo
+# Esperado: HTTP/1.1 422 Unprocessable Entity
+POST {{base}}/ventas/
+Content-Type: application/json
+
+{
+  "cliente_id": 1,
+  "renglones": [
+    { "libro_id": 1, "cantidad": 1, "precio_unitario": "1.00" }
+  ]
+}

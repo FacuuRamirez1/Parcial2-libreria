@@ -1,16 +1,18 @@
 """Rutas HTTP del módulo autores."""
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, status
 
 from app.core.database import SessionDep
-from app.core.paginacion import PaginatedResponse, get_paginacion
+from app.core.paginacion import PaginacionDep
 from app.modules.autores.schemas import AutorCreate, AutorRead, AutorUpdate
 from app.modules.autores.service import (
     actualizar_autor,
     crear_autor,
     listar_autores,
+    listar_libros_de_autor,
     obtener_autor,
 )
+from app.modules.libros.schemas import LibroDeAutorRead
 
 router = APIRouter(prefix="/autores", tags=["autores"])
 
@@ -20,18 +22,11 @@ async def crear_autor_endpoint(data: AutorCreate, session: SessionDep) -> AutorR
     return await crear_autor(session, data)
 
 
-@router.get("/", response_model=PaginatedResponse[AutorRead])
+@router.get("/", response_model=list[AutorRead])
 async def listar_autores_endpoint(
-    session: SessionDep, pag: tuple[int, int] = Depends(get_paginacion)
-) -> PaginatedResponse[AutorRead]:
-    page, size = pag
-    return await listar_autores(
-        session,
-        offset=(page - 1) * size,
-        limit=size,
-        page=page,
-        size=size,
-    )
+    session: SessionDep, pag: PaginacionDep
+) -> list[AutorRead]:
+    return await listar_autores(session, pag)
 
 
 @router.get("/{id}", response_model=AutorRead)
@@ -44,3 +39,10 @@ async def actualizar_autor_endpoint(
     id: int, data: AutorUpdate, session: SessionDep
 ) -> AutorRead:
     return await actualizar_autor(session, id, data)
+
+
+@router.get("/{id}/libros", response_model=list[LibroDeAutorRead])
+async def listar_libros_de_autor_endpoint(
+    id: int, session: SessionDep, pag: PaginacionDep
+) -> list[LibroDeAutorRead]:
+    return await listar_libros_de_autor(session, id, pag)

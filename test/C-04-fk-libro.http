@@ -1,0 +1,60 @@
+@base = http://127.0.0.1:8000
+
+# C-04: libro con una editorial o un autor inexistente. Requiere `python scripts/seed.py`.
+# El alta no consulta antes si el id existe: se escribe y la clave foránea responde 409.
+
+### C-04: editorial inexistente
+# Esperado: HTTP/1.1 409 Conflict, con mensaje propio.
+# Cuerpo: {"detail": "Conflicto de integridad: registro duplicado o referencia inválida"}
+POST {{base}}/libros/
+Content-Type: application/json
+
+{
+  "isbn": "978-950-00-0099-9",
+  "titulo": "Sin editorial",
+  "precio": "100.00",
+  "stock": 1,
+  "editorial_id": 999999
+}
+
+### C-04: autor inexistente (no deja ni el libro ni la autoría: la transacción se revierte)
+# Esperado: HTTP/1.1 409 Conflict, con mensaje propio.
+# Cuerpo: {"detail": "Conflicto de integridad: registro duplicado o referencia inválida"}
+POST {{base}}/libros/
+Content-Type: application/json
+
+{
+  "isbn": "978-950-00-0098-2",
+  "titulo": "Sin autor",
+  "precio": "100.00",
+  "stock": 1,
+  "editorial_id": 1,
+  "autores": [
+    { "autor_id": 999999, "rol": "autor", "orden": 1 }
+  ]
+}
+
+### C-04 (alta válida): ids de editorial, género y autores más rol y orden
+# Esperado: HTTP/1.1 201 Created, con el detalle (editorial, género y autores).
+# Cuerpo: {"id": 5, "isbn": "978-950-00-0006-6", "titulo": "Los que aman, odian", "precio": "21000.00",
+#          "stock": 4, "editorial_id": 1, "genero_id": 1,
+#          "editorial": {"id": 1, "nombre": "Sudamericana", "pais": "Argentina"},
+#          "genero": {"id": 1, "nombre": "Novela"},
+#          "autores": [{"autor": {"id": 3, ...}, "rol": "coautor", "orden": 1},
+#                      {"autor": {"id": 4, ...}, "rol": "coautor", "orden": 2}]}
+# (Un segundo envío responde 409 por el ISBN repetido.)
+POST {{base}}/libros/
+Content-Type: application/json
+
+{
+  "isbn": "978-950-00-0006-6",
+  "titulo": "Los que aman, odian",
+  "precio": "21000.00",
+  "stock": 4,
+  "editorial_id": 1,
+  "genero_id": 1,
+  "autores": [
+    { "autor_id": 3, "rol": "coautor", "orden": 1 },
+    { "autor_id": 4, "rol": "coautor", "orden": 2 }
+  ]
+}

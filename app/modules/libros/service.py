@@ -1,149 +1,128 @@
-"""Lógica de negocio del módulo libros."""
+"""Lógica de negocio del módulo libros (recibe la sesión como parámetro)."""
+
+from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import joinedload, selectinload
+from sqlmodel import select
 
 from app.core.database import SessionDep
-from app.core.paginacion import PaginatedResponse, paginar
-from app.core.unit_of_work import UnitOfWork
-from app.modules.libros.models import Libro, LibroAutor, MovimientoStock
-from app.modules.libros.repository import LibroRepository
+from app.core.paginacion import Paginacion
 from app.modules.editoriales.schemas import EditorialRead
 from app.modules.generos.schemas import GeneroRead
+from app.modules.libros.models import Libro, LibroAutor
 from app.modules.libros.schemas import (
     LibroAutorRead,
     LibroCreate,
     LibroDetalleRead,
+    LibroListaRead,
     LibroRead,
     LibroUpdate,
 )
 
+MENSAJE_NO_ENCONTRADO = "Libro no encontrado"
 
-def _a_detalle(libro: Libro) -> LibroDetalleRead:
-    """Mapea el modelo con relaciones ya precargadas al DTO de detalle."""
-    base = LibroRead.model_validate(libro)
-    return LibroDetalleRead(
-        **base.model_dump(),
+
+# Carga anticipada declarada en la misma consulta: joinedload para relaciones a uno,
+# selectinload para la colección de autorías (y joinedload del autor dentro de ella).
+# Son funciones y no constantes para no configurar los mappers al importar el módulo.
+def _opciones_lista() -> tuple:
+    return (joinedload(Libro.editorial), joinedload(Libro.genero))
+
+
+def _opciones_detalle() -> tuple:
+    return (
+        *_opciones_lista(),
+        selectinload(Libro.autorias).joinedload(LibroAutor.autor),
+    )
+
+
+def _a_lista(libro: Libro) -> LibroListaRead:
+    return LibroListaRead(
+        **LibroRead.model_validate(libro).model_dump(),
         editorial=EditorialRead.model_validate(libro.editorial),
         genero=GeneroRead.model_validate(libro.genero) if libro.genero else None,
+    )
+
+
+def _a_detalle(libro: Libro) -> LibroDetalleRead:
+    return LibroDetalleRead(
+        **_a_lista(libro).model_dump(),
         autores=[LibroAutorRead.model_validate(a) for a in libro.autorias],
     )
 
 
-async def _get_libro(session: SessionDep, id: int) -> Libro:
-    repo = LibroRepository(session, Libro)
-    libro = await repo.get_by_id(id)
-    if libro is None:
-        from fastapi import HTTPException
+async def _confirmar(session: SessionDep) -> None:
+    """Commit; si la base rechaza la escritura se revierte y el handler responde 409."""
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        raise
 
-        raise HTTPException(status_code=404, detail="Libro no encontrado")
-    return libro
 
-
-async def crear_libro(session: SessionDep, data: LibroCreate) -> LibroRead:
+async def crear_libro(session: SessionDep, data: LibroCreate) -> LibroDetalleRead:
     """Crea el libro y sus autorías en una única transacción.
 
-    No consulta de antemano editorial, género ni autor: si la base rechaza el
-    ISBN, una clave foránea o un CHECK, el `IntegrityError` sale del bloque,
-    `UnitOfWork` revierte y el handler global responde 409.
+    No consulta de antemano editorial, género ni autor: si la base rechaza el ISBN,
+    una clave foránea o un CHECK, se revierte y el handler global responde 409.
     """
-    repo = LibroRepository(session, Libro)
     libro = Libro(
         isbn=data.isbn,
         titulo=data.titulo,
         precio=data.precio,
-        stock=data.stock_inicial,
+        stock=data.stock,
         editorial_id=data.editorial_id,
         genero_id=data.genero_id,
+        autorias=[
+            LibroAutor(autor_id=a.autor_id, rol=a.rol, orden=a.orden)
+            for a in data.autores
+        ],
     )
-    async with UnitOfWork(session):
-        await repo.add(libro)  # flush: asigna libro.id
-        for autor in data.autores:
-            session.add(
-                LibroAutor(
-                    libro_id=libro.id,
-                    autor_id=autor.autor_id,
-                    rol=autor.rol,
-                    orden=autor.orden,
-                )
-            )
-        await session.flush()
-    return LibroRead.model_validate(libro)
+    session.add(libro)
+    await _confirmar(session)
+    return await obtener_libro(session, libro.id)
 
 
 async def listar_libros(
     session: SessionDep,
-    page: int,
-    size: int,
+    pag: Paginacion,
     titulo: str | None = None,
     genero_id: int | None = None,
-) -> PaginatedResponse[LibroDetalleRead]:
-    repo = LibroRepository(session, Libro)
-    total = await repo.count_filtrado(titulo=titulo, genero_id=genero_id)
-    if total == 0:
-        return paginar([], 0, page, size)
-    offset = (page - 1) * size
-    items = await repo.get_all_filtrado(
-        titulo=titulo,
-        genero_id=genero_id,
-        offset=offset,
-        limit=size,
+) -> list[LibroListaRead]:
+    """Una sola consulta: editorial y género llegan con joinedload."""
+    consulta = select(Libro).options(*_opciones_lista())
+    if titulo:
+        # El texto viaja como parámetro ligado; `autoescape` neutraliza % y _.
+        consulta = consulta.where(Libro.titulo.icontains(titulo, autoescape=True))
+    if genero_id is not None:
+        consulta = consulta.where(Libro.genero_id == genero_id)
+    resultado = await session.exec(
+        consulta.order_by(Libro.id).offset(pag.offset).limit(pag.limit)
     )
-    return paginar(
-        [_a_detalle(i) for i in items],
-        total,
-        page,
-        size,
-    )
+    return [_a_lista(libro) for libro in resultado.all()]
 
 
 async def obtener_libro(session: SessionDep, id: int) -> LibroDetalleRead:
-    repo = LibroRepository(session, Libro)
-    libro = await repo.get_by_id_con_detalle(id)
+    """Dos consultas fijas, sin importar cuántos autores tenga el libro."""
+    resultado = await session.exec(
+        select(Libro)
+        .where(Libro.id == id)
+        .options(*_opciones_detalle())
+        .execution_options(populate_existing=True)
+    )
+    libro = resultado.first()
     if libro is None:
-        from fastapi import HTTPException
-
-        raise HTTPException(status_code=404, detail="Libro no encontrado")
+        raise HTTPException(status_code=404, detail=MENSAJE_NO_ENCONTRADO)
     return _a_detalle(libro)
 
 
 async def actualizar_libro(
     session: SessionDep, id: int, data: LibroUpdate
-) -> LibroRead:
-    libro = await _get_libro(session, id)
-    repo = LibroRepository(session, Libro)
-    for key, value in data.model_dump(exclude_unset=True).items():
-        setattr(libro, key, value)
-    await repo.update(libro)
-    await session.commit()
-    return LibroRead.model_validate(libro)
-
-
-async def soft_delete_libro(session: SessionDep, id: int) -> None:
-    repo = LibroRepository(session, Libro)
-    libro = await repo.get_by_id_including_deleted(id)
+) -> LibroDetalleRead:
+    libro = await session.get(Libro, id)
     if libro is None:
-        from fastapi import HTTPException
-
-        raise HTTPException(status_code=404, detail="Libro no encontrado")
-    await repo.soft_delete(libro)
-    await session.commit()
-
-
-async def reponer_stock(
-    session: SessionDep, id: int, cantidad: int, usuario_id: int
-) -> LibroRead:
-    repo = LibroRepository(session, Libro)
-    libro = await repo.get_by_id(id)
-    if libro is None:
-        from fastapi import HTTPException
-
-        raise HTTPException(status_code=404, detail="Libro no encontrado")
-    libro.stock = libro.stock + cantidad
-    await repo.update(libro)
-    movimiento = MovimientoStock(
-        libro_id=libro.id,
-        usuario_id=usuario_id,
-        cantidad=cantidad,
-        motivo="reposicion_stock",
-    )
-    session.add(movimiento)
-    await session.commit()
-    return LibroRead.model_validate(libro)
+        raise HTTPException(status_code=404, detail=MENSAJE_NO_ENCONTRADO)
+    for campo, valor in data.model_dump(exclude_unset=True).items():
+        setattr(libro, campo, valor)
+    await _confirmar(session)
+    return await obtener_libro(session, id)

@@ -1,0 +1,32 @@
+@base = http://127.0.0.1:8000
+
+# C-03: segundo perfil para el mismo cliente. Requiere `python scripts/seed.py`
+# (el cliente 1, Ana Pérez, ya tiene perfil; el cliente 2 no).
+
+### C-03: segundo perfil del cliente 1
+# Esperado: HTTP/1.1 409 Conflict
+# Cuerpo: {"detail": "El cliente ya tiene un perfil asociado"}
+POST {{base}}/clientes/1/perfil
+Content-Type: application/json
+
+{
+  "telefono": "11-5555-0000",
+  "direccion": "Calle Falsa 123"
+}
+
+### C-03: el cliente 1 muestra su perfil como objeto (no como lista)
+# Esperado: HTTP/1.1 200 OK
+# Cuerpo: {"id": 1, "nombre": "Ana Pérez", "email": "ana.perez@example.com",
+#          "perfil": {"id": 1, "telefono": "11-5555-0101", "direccion": "Av. Corrientes 1234", "cliente_id": 1}}
+GET {{base}}/clientes/1
+
+### C-03: perfil para un cliente inexistente
+# Esperado: HTTP/1.1 404 Not Found
+# Cuerpo: {"detail": "Cliente no encontrado"}
+POST {{base}}/clientes/999999/perfil
+Content-Type: application/json
+
+{
+  "telefono": "11-5555-0000",
+  "direccion": "Calle Falsa 123"
+}
