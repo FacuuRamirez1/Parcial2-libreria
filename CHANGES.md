@@ -189,7 +189,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06* / C-07*
   - `knowledge-base/04_modelo_de_datos.md` §Navegación
 
 ### [C-07] `asincronia-sin-bloqueos`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` archivado
 - **Scope** (Ejercicio 7; US-010):
   - Aviso de comprobante con `BackgroundTasks` agendado en `POST /ventas/`: `await asyncio.sleep(0.5)` + log; corre después de enviar la respuesta
   - Auditoría de handlers/servicios: todo `async def`, sin `time.sleep`, `requests` ni drivers síncronos
@@ -215,4 +215,4 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06* / C-07*
 | C-04 | contratos-crud | 4 (15) | C-03 | MEDIO | `[x]` |
 | C-05 | altas-con-relaciones | 5 (20) | C-04 | ALTO | `[x]` |
 | C-06 | lecturas-sin-n-mas-uno | 6 (10) | C-05 | MEDIO | `[x]` |
-| C-07 | asincronia-sin-bloqueos | 7 (10) | C-05 | MEDIO | `[ ]` |
+| C-07 | asincronia-sin-bloqueos | 7 (10) | C-05 | MEDIO | `[x]` |

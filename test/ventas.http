@@ -7,6 +7,9 @@
 #   {"libro_id": 2, "titulo": "El principito", "cantidad": 1, "precio_unitario": "10.50", "subtotal": "10.50"}
 # ]}
 # Nota: la fecha y el total los calcula el servidor; precio_unitario se copia del libro.
+# Tarea en segundo plano: 0.5 s después del 201, la consola del servidor muestra
+# INFO app.modules.ventas.service: Aviso de comprobante enviado: venta=1 total=60.50
+# La respuesta no espera al aviso; el log es la evidencia de C-07.
 POST {{base}}/ventas
 Content-Type: application/json
 

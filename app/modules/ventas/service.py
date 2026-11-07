@@ -1,5 +1,7 @@
 """Lógica de negocio del módulo ventas."""
 
+import asyncio
+import logging
 from decimal import Decimal
 
 from fastapi import HTTPException
@@ -19,6 +21,18 @@ from app.modules.ventas.schemas import (
 )
 
 CENTAVOS = Decimal("0.01")
+logger = logging.getLogger(__name__)
+
+
+async def _esperar_aviso() -> None:
+    """Pausa no bloqueante del aviso; aislada para poder controlarla en tests."""
+    await asyncio.sleep(0.5)
+
+
+async def enviar_aviso_comprobante(venta_id: int, total: Decimal) -> None:
+    """Aviso simulado que corre en segundo plano, después de responder la venta."""
+    await _esperar_aviso()
+    logger.info("Aviso de comprobante enviado: venta=%s total=%s", venta_id, total)
 
 
 def _calcular_subtotal(precio_unitario: Decimal, cantidad: int) -> Decimal:
