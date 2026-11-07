@@ -2,19 +2,25 @@
 
 # C-08: búsqueda por título. Requiere `python scripts/seed.py`.
 # El texto viaja como parámetro ligado: nunca se arma SQL con él.
+# Los listados ahora devuelven PaginatedResponse {items,total,page,size,pages}.
 
 ### C-08: el texto ' OR '1'='1 se trata como dato, no como SQL
-# Esperado: HTTP/1.1 200 OK con una lista vacía: []
+# Esperado: HTTP/1.1 200 OK con PaginatedResponse y items vacío.
+# Cuerpo: {"items": [], "total": 0, "page": 1, "size": 20, "pages": 1}
 GET {{base}}/libros/?titulo=%27%20OR%20%271%27%3D%271
 
 ### C-08: búsqueda legítima, sin distinguir mayúsculas
-# Esperado: HTTP/1.1 200 OK con "Rayuela" (libro 1).
+# Esperado: HTTP/1.1 200 OK con "Rayuela" (libro 1) dentro de items.
 GET {{base}}/libros/?titulo=RAYUE
 
 ### C-08: combinada con el filtro por género y la paginación
 # Esperado: HTTP/1.1 200 OK con los libros del género 1 cuyo título contiene "a".
-GET {{base}}/libros/?titulo=a&genero_id=1&limit=2&offset=0
+GET {{base}}/libros/?titulo=a&genero_id=1&size=2&page=1
 
-### C-08: paginación fuera de contrato (limit entre 1 y 100, offset desde 0)
+### C-08: paginación fuera de contrato (size entre 1 y 100, page >= 1)
 # Esperado: HTTP/1.1 422 Unprocessable Entity
-GET {{base}}/libros/?limit=101
+GET {{base}}/libros/?size=101
+
+### C-08: page=0 no es válida
+# Esperado: HTTP/1.1 422 Unprocessable Entity
+GET {{base}}/libros/?page=0

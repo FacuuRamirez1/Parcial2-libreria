@@ -7,11 +7,16 @@ from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.core.config import Configuracion
+from app.core.config import Settings
 
 
-def crear_motor(cfg: Configuracion) -> AsyncEngine:
-    return create_async_engine(cfg.database_url, echo=cfg.sql_echo)
+def crear_motor(settings: Settings) -> AsyncEngine:
+    """Crea el motor asincrónico con el tamaño de pool declarado en Settings."""
+    return create_async_engine(
+        settings.database_url,
+        echo=settings.SQL_ECHO,
+        pool_size=settings.DB_POOL_SIZE,
+    )
 
 
 def crear_fabrica_sesiones(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:

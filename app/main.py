@@ -1,14 +1,16 @@
 """Punto de entrada de la API: ciclo de vida del motor y registro de routers."""
 
+import asyncio
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.core.config import get_settings
-from app.core.errors import init_error_handlers
+from app.core.config import Settings
 from app.core.database import crear_fabrica_sesiones, crear_motor
+from app.core.errors import init_error_handlers
+from app.core.security import calcular_hash_ficticio
 import app.models  # noqa: F401  (registra todos los mappers antes de la primera consulta)
 from app.modules.autores.router import router as autores_router
 from app.modules.clientes.router import router as clientes_router
@@ -34,12 +36,17 @@ def configurar_logging() -> None:
         logger.addHandler(manejador)
 
 
+configurar_logging()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    cfg = get_settings()
-    engine = crear_motor(cfg)
+    settings = Settings()  # falla con mensaje claro si faltan JWT_SECRET_KEY / POSTGRES_PASSWORD
+    engine = crear_motor(settings)
     app.state.engine = engine
     app.state.session_factory = crear_fabrica_sesiones(engine)
+    # Hash ficticio calculado una vez al arrancar (fuera del bucle de eventos).
+    app.state.hash_ficticio = await calcular_hash_ficticio(settings.BCRYPT_COST)
     try:
         yield
     finally:

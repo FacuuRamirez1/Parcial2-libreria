@@ -1,0 +1,31 @@
+@base = http://127.0.0.1:8000
+
+# C-09: casos nuevos de paginación (regresión del refactor a capas).
+# Requiere `python scripts/seed.py` para tener datos; los casos de página vacía
+# no necesitan datos (usan un filtro que no coincide).
+
+### C-09: valores por defecto page=1 / size=20
+# Esperado: HTTP/1.1 200 OK con PaginatedResponse, page=1, size=20.
+GET {{base}}/editoriales/
+
+### C-09: page=0 → 422
+# Esperado: HTTP/1.1 422 Unprocessable Entity
+GET {{base}}/editoriales/?page=0
+
+### C-09: size=101 → 422
+# Esperado: HTTP/1.1 422 Unprocessable Entity
+GET {{base}}/editoriales/?size=101
+
+### C-09: total == 0 → pages=1, items=[]
+# Esperado: HTTP/1.1 200 OK
+# Cuerpo: {"items": [], "total": 0, "page": 1, "size": 20, "pages": 1}
+GET {{base}}/libros/?titulo=zzz-no-existe
+
+### C-09: page > pages con total > 0 → 422 "Página fuera de rango"
+# Esperado: HTTP/1.1 422 Unprocessable Entity
+# Cuerpo: {"detail": "Página fuera de rango"}
+GET {{base}}/editoriales/?page=999
+
+### C-09: paginación válida con page y size explícitos
+# Esperado: HTTP/1.1 200 OK con PaginatedResponse, page=2, size=5.
+GET {{base}}/libros/?page=2&size=5

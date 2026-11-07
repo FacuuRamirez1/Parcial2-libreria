@@ -227,7 +227,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-07 → C-08 → C-09* / C-10* →
 ## FASE 5 — Base de capas del Parcial
 
 ### [C-08] `settings-y-base-de-capas`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` archivado
 - **Scope** (Ejercicio 1 del Parcial, 6 pts; US-101..US-103):
   - `app/core/config.py`: `Settings` con `pydantic-settings` (`POSTGRES_*`, clave de firma JWT y contraseña **sin valor por defecto**, costo de bcrypt, tamaño de pool, flag `Secure` de la cookie); reemplaza `python-dotenv`/`DATABASE_URL` en el parcial (DD-09, IN-07)
   - `app/core/repository.py`: `BaseRepository[T]` y `SoftDeleteRepository[T]` (genéricos; la lógica específica llega en C-09)
@@ -252,7 +252,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-07 → C-08 → C-09* / C-10* →
 > C-09 y C-10 son independientes y pueden ejecutarse en paralelo tras C-08. Ojo con conflictos en `alembic/env.py` y `app/main.py` (import de modelos y routers).
 
 ### [C-09] `modulos-a-repositorios-uow`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` archivado
 - **Scope** (Ejercicio 6 parcial parte 1, repositorios y UoW, 16 pts; Ejercicio 3 parcial, contratos, 8 pts; parte N+1 del Ejercicio 8; US-106, US-113, US-114, US-117):
   - Migrar `editoriales`, `generos`, `autores`, `libros`, `clientes`, `ventas` a `models/schemas/repository/unit_of_work/service/router`
   - Servicios reciben el `UnitOfWork` (no la sesión); `commit`/`rollback` en el UoW; un repositorio por entidad sobre `BaseRepository`/`SoftDeleteRepository`
@@ -436,8 +436,8 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-07 → C-08 → C-09* / C-10* →
 | C-05 | altas-con-relaciones | 5 (20) | C-04 | ALTO | `[x]` |
 | C-06 | lecturas-sin-n-mas-uno | 6 (10) | C-05 | MEDIO | `[x]` |
 | C-07 | asincronia-sin-bloqueos | 7 (10) | C-05 | MEDIO | `[x]` |
-| C-08 | settings-y-base-de-capas | P1 (6) | C-07 | ALTO | `[ ]` |
-| C-09 | modulos-a-repositorios-uow | P6 (16) + P3 (8) | C-08 | ALTO | `[ ]` |
+| C-08 | settings-y-base-de-capas | P1 (6) | C-07 | ALTO | `[x]` |
+| C-09 | modulos-a-repositorios-uow | P6 (16) + P3 (8) | C-08 | ALTO | `[x]` |
 | C-10 | modelos-acceso-stock-migraciones | P2 (10) + P7 trigger | C-08 | CRITICO | `[ ]` |
 | C-11 | autenticacion | P4 (14) + P7 intento | C-09, C-10 | CRITICO | `[ ]` |
 | C-12 | autorizacion-roles-y-rutas | P5 (12) | C-11 | CRITICO | `[ ]` |

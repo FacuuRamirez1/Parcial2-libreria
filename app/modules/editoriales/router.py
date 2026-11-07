@@ -1,9 +1,9 @@
 """Rutas HTTP del módulo editoriales."""
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Depends, status
 
 from app.core.database import SessionDep
-from app.core.paginacion import PaginacionDep
+from app.core.paginacion import PaginatedResponse, Paginacion, get_paginacion
 from app.modules.editoriales.schemas import EditorialCreate, EditorialRead, EditorialUpdate
 from app.modules.editoriales.service import (
     actualizar_editorial,
@@ -12,39 +12,49 @@ from app.modules.editoriales.service import (
     listar_libros_de_editorial,
     obtener_editorial,
 )
+from app.modules.editoriales.unit_of_work import EditorialesUnitOfWork
 from app.modules.libros.schemas import LibroRead
 
 router = APIRouter(prefix="/editoriales", tags=["editoriales"])
 
 
+async def get_editoriales_uow(session: SessionDep) -> EditorialesUnitOfWork:
+    return EditorialesUnitOfWork(session)
+
+
 @router.post("/", response_model=EditorialRead, status_code=status.HTTP_201_CREATED)
 async def crear_editorial_endpoint(
-    data: EditorialCreate, session: SessionDep
+    data: EditorialCreate, uow: EditorialesUnitOfWork = Depends(get_editoriales_uow)
 ) -> EditorialRead:
-    return await crear_editorial(session, data)
+    return await crear_editorial(uow, data)
 
 
-@router.get("/", response_model=list[EditorialRead])
+@router.get("/", response_model=PaginatedResponse[EditorialRead])
 async def listar_editoriales_endpoint(
-    session: SessionDep, pag: PaginacionDep
-) -> list[EditorialRead]:
-    return await listar_editoriales(session, pag)
+    uow: EditorialesUnitOfWork = Depends(get_editoriales_uow),
+    pag: Paginacion = Depends(get_paginacion),
+) -> PaginatedResponse[EditorialRead]:
+    return await listar_editoriales(uow, pag)
 
 
 @router.get("/{id}", response_model=EditorialRead)
-async def obtener_editorial_endpoint(id: int, session: SessionDep) -> EditorialRead:
-    return await obtener_editorial(session, id)
+async def obtener_editorial_endpoint(
+    id: int, uow: EditorialesUnitOfWork = Depends(get_editoriales_uow)
+) -> EditorialRead:
+    return await obtener_editorial(uow, id)
 
 
 @router.patch("/{id}", response_model=EditorialRead)
 async def actualizar_editorial_endpoint(
-    id: int, data: EditorialUpdate, session: SessionDep
+    id: int, data: EditorialUpdate, uow: EditorialesUnitOfWork = Depends(get_editoriales_uow)
 ) -> EditorialRead:
-    return await actualizar_editorial(session, id, data)
+    return await actualizar_editorial(uow, id, data)
 
 
-@router.get("/{id}/libros", response_model=list[LibroRead])
+@router.get("/{id}/libros", response_model=PaginatedResponse[LibroRead])
 async def listar_libros_de_editorial_endpoint(
-    id: int, session: SessionDep, pag: PaginacionDep
-) -> list[LibroRead]:
-    return await listar_libros_de_editorial(session, id, pag)
+    id: int,
+    uow: EditorialesUnitOfWork = Depends(get_editoriales_uow),
+    pag: Paginacion = Depends(get_paginacion),
+) -> PaginatedResponse[LibroRead]:
+    return await listar_libros_de_editorial(uow, id, pag)

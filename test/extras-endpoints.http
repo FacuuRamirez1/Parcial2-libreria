@@ -1,25 +1,30 @@
 @base = http://127.0.0.1:8000
 
 # Endpoints de referencia que no pertenecen a un caso C-NN. Requiere `python scripts/seed.py`.
+# Los listados ahora devuelven PaginatedResponse {items,total,page,size,pages}.
 
 ### Libros de una editorial
 # Esperado: HTTP/1.1 200 OK con los libros 1 y 2 (editorial 1). 404 si la editorial no existe.
+# Cuerpo: {"items": [...], "total": 2, "page": 1, "size": 20, "pages": 1}
 GET {{base}}/editoriales/1/libros
 
 ### Libros de un género
 # Esperado: HTTP/1.1 200 OK con los libros 1, 2 y 4 (género 1). 404 si el género no existe.
+# Cuerpo: {"items": [...], "total": 3, "page": 1, "size": 20, "pages": 1}
 GET {{base}}/generos/1/libros
 
 ### Géneros (lista paginada)
-# Esperado: HTTP/1.1 200 OK con una lista de GeneroRead.
-GET {{base}}/generos/?limit=10&offset=0
+# Esperado: HTTP/1.1 200 OK con PaginatedResponse de GeneroRead.
+GET {{base}}/generos/?size=10&page=1
 
 ### Libros de un autor, con el rol y el orden de cada autoría
 # Esperado: HTTP/1.1 200 OK; el autor 3 (Bioy Casares) figura en el libro 3 con rol "coautor" y orden 3.
+# Cuerpo: {"items": [...], "total": N, "page": 1, "size": 20, "pages": 1}
 GET {{base}}/autores/3/libros
 
 ### Ventas de un cliente
 # Esperado: HTTP/1.1 200 OK con las ventas del cliente 1 (cliente y renglones incluidos).
+# Cuerpo: {"items": [...], "total": N, "page": 1, "size": 20, "pages": 1}
 GET {{base}}/clientes/1/ventas
 
 ### PATCH parcial: solo se modifica lo enviado

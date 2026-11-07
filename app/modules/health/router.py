@@ -1,6 +1,6 @@
 """Sondas de vida y de disponibilidad de la base."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, status
 
 from app.core.database import SessionDep
 from app.modules.health.schemas import EstadoDisponibilidad, EstadoVida
@@ -18,4 +18,7 @@ async def live() -> EstadoVida:
 async def ready(session: SessionDep) -> EstadoDisponibilidad:
     if await base_disponible(session):
         return EstadoDisponibilidad(estado="listo", base="conectada")
-    return EstadoDisponibilidad(estado="no listo", base="sin conexión")
+    raise HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="Base no disponible",
+    )

@@ -12,12 +12,10 @@ cliente 2 no; los libros 1 y 4 cuestan 25000.00 y 27000.00, como en la consigna.
 from __future__ import annotations
 
 import asyncio
-import os
 import sys
 from decimal import Decimal
 from pathlib import Path
 
-from dotenv import load_dotenv
 from sqlalchemy import func
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlmodel import select
@@ -27,6 +25,7 @@ RAIZ = Path(__file__).resolve().parent.parent
 if str(RAIZ) not in sys.path:
     sys.path.insert(0, str(RAIZ))
 
+from app.core.config import Settings  # noqa: E402
 from app.modules.autores.models import Autor  # noqa: E402
 from app.modules.clientes.models import Cliente, PerfilCliente  # noqa: E402
 from app.modules.editoriales.models import Editorial  # noqa: E402
@@ -154,13 +153,7 @@ async def cargar_datos(sesion: AsyncSession) -> bool:
 
 
 async def main() -> None:
-    load_dotenv(RAIZ / ".env", override=False)
-    url = os.environ.get("DATABASE_URL", "").strip()
-    if not url:
-        raise SystemExit(
-            "Falta DATABASE_URL (defínela en el entorno o en el archivo .env)."
-        )
-
+    url = Settings().database_url
     engine = create_async_engine(url, echo=False)
     try:
         fabrica = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)

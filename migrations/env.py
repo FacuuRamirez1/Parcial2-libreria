@@ -1,9 +1,7 @@
 import asyncio
-import os
 from logging.config import fileConfig
 from pathlib import Path
 
-from dotenv import load_dotenv
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
@@ -20,14 +18,12 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Carga .env de la raíz (el entorno del proceso prevalece) para obtener DATABASE_URL.
-RAIZ = Path(__file__).resolve().parent.parent
-load_dotenv(RAIZ / ".env", override=False)
-database_url = os.environ.get("DATABASE_URL", "")
-if not database_url:
-    raise RuntimeError(
-        "Falta la variable DATABASE_URL (defínela en el entorno o en el archivo .env)."
-    )
+# La URL de la base se obtiene de Settings (pydantic-settings), que lee el
+# entorno del proceso o un .env local no versionado. Nunca hay DATABASE_URL
+# hardcodeada ni credenciales en este archivo.
+from app.core.config import Settings  # noqa: E402
+
+database_url = Settings().database_url
 config.set_main_option("sqlalchemy.url", database_url)
 
 # add your model's MetaData object here

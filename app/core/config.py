@@ -1,43 +1,48 @@
-"""Configuración de la aplicación leída del entorno (y de un .env local no versionado)."""
+"""Configuración de la aplicación con pydantic-settings.
 
-import os
-from collections.abc import Mapping
-from dataclasses import dataclass
-from pathlib import Path
+Lee las variables de entorno (el entorno del proceso prevalece sobre el .env).
+JWT_SECRET_KEY y POSTGRES_PASSWORD no tienen valor por defecto: si faltan, la
+aplicación no arranca. La URL de la base se arma con @computed_field usando el
+driver postgresql+asyncpg.
+"""
 
-from dotenv import load_dotenv
-
-RAIZ = Path(__file__).resolve().parent.parent.parent
-PREFIJO_DRIVER = "postgresql+asyncpg://"
-VALORES_VERDADEROS = {"true", "1", "yes", "on"}
-
-
-class ErrorDeConfiguracion(RuntimeError):
-    """Configuración inválida. El mensaje nombra la variable, nunca su valor."""
+from pydantic import Field, computed_field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy.engine import URL
 
 
-@dataclass(frozen=True)
-class Configuracion:
-    database_url: str
-    sql_echo: bool
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
+    # Conexión a la base de datos (POSTGRES_PASSWORD sin valor por defecto).
+    POSTGRES_USER: str
+    POSTGRES_PASSWORD: str
+    POSTGRES_DB: str
+    POSTGRES_HOST: str
+    POSTGRES_PORT: int = Field(default=5432)
 
-def leer_configuracion(entorno: Mapping[str, str]) -> Configuracion:
-    """Valida y construye la configuración a partir de un mapeo (función pura)."""
-    url = entorno.get("DATABASE_URL", "").strip()
-    if not url:
-        raise ErrorDeConfiguracion(
-            "Falta la variable DATABASE_URL (defínela en el entorno o en el archivo .env)."
-        )
-    if not url.startswith(PREFIJO_DRIVER):
-        raise ErrorDeConfiguracion(
-            "DATABASE_URL debe usar el driver asincrónico postgresql+asyncpg."
-        )
-    sql_echo = entorno.get("SQL_ECHO", "").strip().lower() in VALORES_VERDADEROS
-    return Configuracion(database_url=url, sql_echo=sql_echo)
+    # Seguridad y token.
+    JWT_SECRET_KEY: str  # sin valor por defecto
+    BCRYPT_COST: int = Field(default=12)
+    DB_POOL_SIZE: int = Field(default=5)
+    COOKIE_SECURE: bool = Field(default=False)
+    ACCESS_TOKEN_MINUTES: int = Field(default=30)
 
+    # SQL en consola.
+    SQL_ECHO: bool = Field(default=False)
 
-def get_settings() -> Configuracion:
-    """Carga el .env de la raíz (el entorno del proceso prevalece) y valida."""
-    load_dotenv(RAIZ / ".env", override=False)
-    return leer_configuracion(os.environ)
+    @computed_field  # type: ignore[misc]
+    @property
+    def database_url(self) -> str:
+        """Dirección de conexión con el driver asincrónico postgresql+asyncpg.
+
+        La contraseña se codifica para que caracteres como @, : o / no rompan la URL.
+        """
+        return URL.create(
+            drivername="postgresql+asyncpg",
+            username=self.POSTGRES_USER,
+            password=self.POSTGRES_PASSWORD,
+            host=self.POSTGRES_HOST,
+            port=self.POSTGRES_PORT,
+            database=self.POSTGRES_DB,
+        ).render_as_string(hide_password=False)
