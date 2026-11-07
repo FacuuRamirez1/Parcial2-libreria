@@ -5,6 +5,7 @@
   "discovery": {
     "created_by": "discovery-research",
     "sources": [
+      "Parcial_Cap1a6_Consigna.pdf",
       "TP_Cap1a4_Consigna.pdf"
     ],
     "competitors": [],
@@ -107,7 +108,16 @@
       "C-04",
       "C-05",
       "C-06",
-      "C-07"
+      "C-07",
+      "C-08",
+      "C-09",
+      "C-10",
+      "C-11",
+      "C-12",
+      "C-13",
+      "C-14",
+      "C-15",
+      "C-16"
     ]
   },
   "skills": {
@@ -206,12 +216,15 @@
       }
     ],
     "installed": [
-      "fastapi",
-      "fastapi-templates",
-      "sqlmodel",
-      "postgresql-table-design",
+      "backend-development",
       "database-patterns",
-      "python-backend"
+      "docker-best-practices",
+      "fastapi",
+      "fastapi-expert",
+      "fastapi-templates",
+      "postgresql-table-design",
+      "python-backend",
+      "sqlmodel"
     ]
   },
   "registry": {
@@ -225,9 +238,13 @@
       "AGENTS.md"
     ],
     "reglas_applied": [
+      "auth-secretos-401-403",
+      "capas-repos-uow",
       "datos-y-base",
+      "integridad-esquema",
       "lecturas-y-async",
       "proyecto",
+      "snapshot-despliegue",
       "universales"
     ]
   }

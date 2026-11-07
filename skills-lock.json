@@ -1,17 +1,35 @@
 {
   "version": 1,
   "skills": {
+    "backend-development": {
+      "source": "mrgoonie/claudekit-skills",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/backend-development/SKILL.md",
+      "computedHash": "19a6a72ddb96062c3edef801451bd721726dd571f7db221f0b4d83ad70aad114"
+    },
     "database-patterns": {
       "source": "yonatangross/orchestkit",
       "sourceType": "github",
       "skillPath": "plugins/ork/skills/database-patterns/SKILL.md",
       "computedHash": "c4b518ea9b0302e3423c470d8c562c1a62eb93c9b9b54f10e6e00a348729cfaa"
     },
+    "docker-best-practices": {
+      "source": "josiahsiegel/claude-plugin-marketplace",
+      "sourceType": "github",
+      "skillPath": "plugins/docker-master/skills/docker-best-practices/SKILL.md",
+      "computedHash": "aa4f4c45dc4b71aa392a8cf204e5610426fe2534db9cc4c0c26a335f04cf5a68"
+    },
     "fastapi": {
       "source": "fastapi/fastapi",
       "sourceType": "github",
       "skillPath": "fastapi/.agents/skills/fastapi/SKILL.md",
       "computedHash": "2f0ff30756b435168276e1a7eb78c07856118575ea174535de7ed86dc88c9be4"
+    },
+    "fastapi-expert": {
+      "source": "jeffallan/claude-skills",
+      "sourceType": "github",
+      "skillPath": "skills/fastapi-expert/SKILL.md",
+      "computedHash": "687496fcceddb0e01d5a9e7110e035e32993ddf04e45ed79065f0c28bcea9e7f"
     },
     "fastapi-templates": {
       "source": "wshobson/agents",
