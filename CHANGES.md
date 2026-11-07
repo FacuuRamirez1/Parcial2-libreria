@@ -115,11 +115,12 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-06* / C-07*
 - **Estado**: `[x]` archivado
 - **Scope** (Ejercicio 3; US-004):
   - Alembic con plantilla async (`alembic init -t async`); URL tomada del entorno, sin credenciales en `alembic.ini`; `env.py` apunta a `SQLModel.metadata` e importa todos los modelos
-  - Migración 001 (`--autogenerate`): todas las tablas excepto `genero` y sin `libro.genero_id` (se autogenera con `Genero` y `genero_id` temporalmente fuera del metadata)
-  - Migración 002 (`--autogenerate`): crea `genero` y agrega `libro.genero_id` con FK e índice
+  - Migración 001 (`--autogenerate`): esquema completo de 14 tablas (las 9 de la consigna más `usuario`, `asignacion_rol`, `intento_acceso`, `evento_seguridad` y `movimiento_stock`); incluye `genero` y `libro.genero_id`
+  - Migración 002: función y trigger `trg_movimiento_stock_solo_agregado` (bloquea UPDATE/DELETE en `movimiento_stock`)
+  - Migración 003 (corrección posterior): elimina el índice redundante `ix_cliente_usuario_id` y deja la cabeza actual
   - Revisión manual de cada migración con comentario explicativo; correcciones a mano si hace falta (CHECK, índices, tipos)
   - Verificar: `alembic upgrade head` sobre base vacía; `downgrade -1` + `upgrade head`
-  - Script de datos iniciales `scripts/seed.py` (async) para los casos C-01..C-08
+  - Script de datos iniciales `scripts/seed.py` (async) para los casos C-01..C-08: completado en C-07 (diferido desde C-03)
 - **Dependencias**: `C-02`
 - **Governance**: ALTO
 - **Leer antes**:
