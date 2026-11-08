@@ -5,19 +5,24 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query, status
 
 from app.core.database import SessionDep
-from app.core.dependencies import ADMIN, requiere_rol
+from app.core.dependencies import ADMIN, UsuarioActual, UsuarioActualDep, requiere_rol
 from app.core.paginacion import PaginatedResponse, Paginacion, get_paginacion
 from app.modules.libros.schemas import (
     LibroCreate,
     LibroDetalleRead,
     LibroListaRead,
     LibroUpdate,
+    MovimientoStockRead,
+    ReposicionIn,
 )
 from app.modules.libros.service import (
     actualizar_libro,
+    baja_libro,
     crear_libro,
     listar_libros,
+    listar_movimientos,
     obtener_libro,
+    reponer_libro,
 )
 from app.modules.libros.unit_of_work import LibrosUnitOfWork
 
@@ -29,11 +34,17 @@ async def get_libros_uow(session: SessionDep) -> LibrosUnitOfWork:
     return LibrosUnitOfWork(session)
 
 
-@router_protegido.post("/", dependencies=[Depends(requiere_rol(ADMIN))], response_model=LibroDetalleRead, status_code=status.HTTP_201_CREATED)
+@router_protegido.post(
+    "/",
+    response_model=LibroDetalleRead,
+    status_code=status.HTTP_201_CREATED,
+)
 async def crear_libro_endpoint(
-    data: LibroCreate, uow: LibrosUnitOfWork = Depends(get_libros_uow)
+    data: LibroCreate,
+    actual: UsuarioActual = Depends(requiere_rol(ADMIN)),
+    uow: LibrosUnitOfWork = Depends(get_libros_uow),
 ) -> LibroDetalleRead:
-    return await crear_libro(uow, data)
+    return await crear_libro(uow, data, actual.usuario.id)
 
 
 @router_abierto.get("/", response_model=PaginatedResponse[LibroListaRead])
@@ -53,8 +64,47 @@ async def obtener_libro_endpoint(
     return await obtener_libro(uow, id)
 
 
-@router_protegido.patch("/{id}", dependencies=[Depends(requiere_rol(ADMIN))], response_model=LibroDetalleRead)
+@router_protegido.patch(
+    "/{id}",
+    dependencies=[Depends(requiere_rol(ADMIN))],
+    response_model=LibroDetalleRead,
+)
 async def actualizar_libro_endpoint(
     id: int, data: LibroUpdate, uow: LibrosUnitOfWork = Depends(get_libros_uow)
 ) -> LibroDetalleRead:
     return await actualizar_libro(uow, id, data)
+
+
+@router_protegido.delete(
+    "/{id}",
+    dependencies=[Depends(requiere_rol(ADMIN))],
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def baja_libro_endpoint(
+    id: int, uow: LibrosUnitOfWork = Depends(get_libros_uow)
+) -> None:
+    await baja_libro(uow, id)
+
+
+@router_protegido.post(
+    "/{id}/reponer",
+    response_model=LibroDetalleRead,
+)
+async def reponer_libro_endpoint(
+    id: int,
+    data: ReposicionIn,
+    actual: UsuarioActual = Depends(requiere_rol(ADMIN)),
+    uow: LibrosUnitOfWork = Depends(get_libros_uow),
+) -> LibroDetalleRead:
+    return await reponer_libro(uow, id, data.cantidad, actual.usuario.id)
+
+
+@router_protegido.get(
+    "/{id}/movimientos",
+    dependencies=[Depends(requiere_rol(ADMIN))],
+    response_model=list[MovimientoStockRead],
+)
+async def listar_movimientos_endpoint(
+    id: int, uow: LibrosUnitOfWork = Depends(get_libros_uow)
+) -> list[MovimientoStockRead]:
+    return await listar_movimientos(uow, id)

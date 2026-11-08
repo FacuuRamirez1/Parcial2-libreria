@@ -1,0 +1,270 @@
+@base = http://127.0.0.1:8000
+
+# C-13: stock por movimientos, baja logica, re-alta de ISBN y ventas atomicas.
+# Requisitos previos, en este orden:
+#   1. alembic upgrade head            (cabeza 0004)
+#   2. python scripts/seed.py
+#   3. psql -f test/C-12-preparacion.sql   (admin@ y vendedor@ example.com)
+#   4. uvicorn app.main:app
+# Cada pedido va con `# @no-cookie-jar` y la cookie se pasa a mano: varias sesiones a la vez.
+# Los correos de registro llevan {{$timestamp}} para no depender de corridas anteriores.
+
+# ===================== SESIONES =====================
+
+### C-13 login: administrador
+# Esperado: HTTP/1.1 200 OK. Set-Cookie: access_token=...; HttpOnly
+# @name loginAdmin
+# @no-cookie-jar
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "admin@example.com", "password": "clave-admin-1" }
+
+### C-13 login: vendedor
+# Esperado: HTTP/1.1 200 OK.
+# @name loginVendedor
+# @no-cookie-jar
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "vendedor@example.com", "password": "clave-vendedor-1" }
+
+### C-13 registro: cliente duenio de la venta
+# Esperado: HTTP/1.1 201 Created. Cuerpo: {"id": ..., "email": ..., "nombre": ..., "cliente_id": ...}
+# @name registroDuenio
+# @no-cookie-jar
+POST {{base}}/auth/registro
+Content-Type: application/json
+
+{ "email": "duenio+{{$timestamp}}@example.com", "nombre": "Cliente Duenio", "password": "clave-segura-1" }
+
+### C-13 login: cliente duenio
+# Esperado: HTTP/1.1 200 OK.
+# @name loginDuenio
+# @no-cookie-jar
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "{{registroDuenio.response.body.$.email}}", "password": "clave-segura-1" }
+
+### C-13 registro: cliente ajeno (no participa de la venta)
+# Esperado: HTTP/1.1 201 Created.
+# @name registroAjeno
+# @no-cookie-jar
+POST {{base}}/auth/registro
+Content-Type: application/json
+
+{ "email": "ajeno+{{$timestamp}}@example.com", "nombre": "Cliente Ajeno", "password": "clave-segura-1" }
+
+### C-13 login: cliente ajeno
+# Esperado: HTTP/1.1 200 OK.
+# @name loginAjeno
+# @no-cookie-jar
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "{{registroAjeno.response.body.$.email}}", "password": "clave-segura-1" }
+
+# ===================== STOCK POR MOVIMIENTOS =====================
+
+### C-13 alta: stock_inicial deja un movimiento "Stock inicial"
+# Esperado: HTTP/1.1 201 Created con "stock": 5.
+# @name altaLibro
+POST {{base}}/libros/
+Content-Type: application/json
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+{
+  "isbn": "978-950-00-1301-7",
+  "titulo": "Libro C-13",
+  "precio": "1000.00",
+  "stock_inicial": 5,
+  "editorial_id": 1
+}
+
+### C-13 movimientos: el alta aparece en el historial
+# Esperado: HTTP/1.1 200 OK con un movimiento cantidad=5, motivo="Stock inicial", venta_id=null.
+GET {{base}}/libros/{{altaLibro.response.body.$.id}}/movimientos
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+### C-13 reponer: suma stock y agrega un movimiento "Reposicion"
+# Esperado: HTTP/1.1 200 OK con "stock": 8.
+POST {{base}}/libros/{{altaLibro.response.body.$.id}}/reponer
+Content-Type: application/json
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+{ "cantidad": 3 }
+
+### C-13 movimientos: alta + reposicion
+# Esperado: HTTP/1.1 200 OK con dos movimientos: cantidad=5 "Stock inicial" y cantidad=3 "Reposicion".
+GET {{base}}/libros/{{altaLibro.response.body.$.id}}/movimientos
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+### C-13 PATCH con stock: prohibido (el stock solo cambia por movimientos)
+# Esperado: HTTP/1.1 422 Unprocessable Entity (campo extra prohibido).
+PATCH {{base}}/libros/{{altaLibro.response.body.$.id}}
+Content-Type: application/json
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+{ "stock": 100 }
+
+### C-13 PATCH valido: el resto de los campos si se edita
+# Esperado: HTTP/1.1 200 OK con el titulo nuevo y "stock": 8.
+PATCH {{base}}/libros/{{altaLibro.response.body.$.id}}
+Content-Type: application/json
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+{ "titulo": "Libro C-13 (revisado)" }
+
+# ===================== BAJA LOGICA Y RE-ALTA =====================
+
+### C-13 baja logica
+# Esperado: HTTP/1.1 204 No Content.
+DELETE {{base}}/libros/{{altaLibro.response.body.$.id}}
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+### C-13 el libro dado de baja sale del catalogo
+# Esperado: HTTP/1.1 404 Not Found. {"detail": "Libro no encontrado"}
+GET {{base}}/libros/{{altaLibro.response.body.$.id}}
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+### C-13 el historial se conserva para auditoria
+# Esperado: HTTP/1.1 200 OK con los dos movimientos del libro dado de baja.
+GET {{base}}/libros/{{altaLibro.response.body.$.id}}/movimientos
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+### C-13 reponer un libro dado de baja
+# Esperado: HTTP/1.1 409 Conflict. {"detail": "El libro está dado de baja"}
+POST {{base}}/libros/{{altaLibro.response.body.$.id}}/reponer
+Content-Type: application/json
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+{ "cantidad": 1 }
+
+### C-13 re-alta: el mismo ISBN vuelve a crearse (fila nueva)
+# Esperado: HTTP/1.1 201 Created con un id distinto y "stock": 2.
+# @name reAltaLibro
+POST {{base}}/libros/
+Content-Type: application/json
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+{
+  "isbn": "978-950-00-1301-7",
+  "titulo": "Libro C-13 (re-alta)",
+  "precio": "1000.00",
+  "stock_inicial": 2,
+  "editorial_id": 1
+}
+
+### C-13 re-alta: el historial nuevo no mezcla los movimientos del libro viejo
+# Esperado: HTTP/1.1 200 OK con un solo movimiento cantidad=2 "Stock inicial".
+GET {{base}}/libros/{{reAltaLibro.response.body.$.id}}/movimientos
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+### C-13 segundo vigente con el mismo ISBN
+# Esperado: HTTP/1.1 409 Conflict (indice unico parcial: solo un ISBN vigente).
+POST {{base}}/libros/
+Content-Type: application/json
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+{
+  "isbn": "978-950-00-1301-7",
+  "titulo": "Libro C-13 (duplicado)",
+  "precio": "1000.00",
+  "stock_inicial": 1,
+  "editorial_id": 1
+}
+
+# ===================== VENTAS ATOMICAS =====================
+
+### C-13 venta: descuenta stock y deja un movimiento "Venta"
+# Esperado: HTTP/1.1 201 Created con total "1000.00".
+# @name ventaC13
+POST {{base}}/ventas/
+Content-Type: application/json
+Cookie: {{loginVendedor.response.headers.Set-Cookie}}
+
+{
+  "cliente_id": {{registroDuenio.response.body.$.cliente_id}},
+  "renglones": [
+    { "libro_id": {{reAltaLibro.response.body.$.id}}, "cantidad": 1 }
+  ]
+}
+
+### C-13 venta: el stock quedo en 1
+# Esperado: HTTP/1.1 200 OK con "stock": 1.
+GET {{base}}/libros/{{reAltaLibro.response.body.$.id}}
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+### C-13 movimientos: alta + venta
+# Esperado: HTTP/1.1 200 OK con cantidad=2 "Stock inicial" y cantidad=-1 "Venta" (con venta_id).
+GET {{base}}/libros/{{reAltaLibro.response.body.$.id}}/movimientos
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+### C-13 venta con stock insuficiente: 409 sin escrituras
+# Esperado: HTTP/1.1 409 Conflict. {"detail": "No hay stock suficiente para la venta"}
+POST {{base}}/ventas/
+Content-Type: application/json
+Cookie: {{loginVendedor.response.headers.Set-Cookie}}
+
+{
+  "cliente_id": {{registroDuenio.response.body.$.cliente_id}},
+  "renglones": [
+    { "libro_id": {{reAltaLibro.response.body.$.id}}, "cantidad": 5 }
+  ]
+}
+
+### C-13 venta con un libro dado de baja: 409 sin escrituras
+# Esperado: HTTP/1.1 409 Conflict.
+POST {{base}}/ventas/
+Content-Type: application/json
+Cookie: {{loginVendedor.response.headers.Set-Cookie}}
+
+{
+  "cliente_id": {{registroDuenio.response.body.$.cliente_id}},
+  "renglones": [
+    { "libro_id": {{altaLibro.response.body.$.id}}, "cantidad": 1 }
+  ]
+}
+
+### C-13 la venta fallida no dejo movimientos ni vendio el libro
+# Esperado: HTTP/1.1 200 OK con "stock": 1 (solo el alta y la venta exitosa).
+GET {{base}}/libros/{{reAltaLibro.response.body.$.id}}
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+# ===================== VENTAS PROPIAS Y DETALLE =====================
+
+### C-13 mis-ventas: el duenio ve su venta
+# Esperado: HTTP/1.1 200 OK con PaginatedResponse; total=1 y la venta {{ventaC13.response.body.$.id}}.
+GET {{base}}/mis-ventas
+Cookie: {{loginDuenio.response.headers.Set-Cookie}}
+
+### C-13 mis-ventas: el ajeno ve una pagina vacia
+# Esperado: HTTP/1.1 200 OK con total=0, items=[].
+GET {{base}}/mis-ventas
+Cookie: {{loginAjeno.response.headers.Set-Cookie}}
+
+### C-13 detalle: el duenio ve su venta
+# Esperado: HTTP/1.1 200 OK con cliente y renglones.
+GET {{base}}/ventas/{{ventaC13.response.body.$.id}}
+Cookie: {{loginDuenio.response.headers.Set-Cookie}}
+
+### C-13 detalle: el ajeno recibe 403
+# Esperado: HTTP/1.1 403 Forbidden. {"detail": "No tenés permiso para ver esta venta"}
+GET {{base}}/ventas/{{ventaC13.response.body.$.id}}
+Cookie: {{loginAjeno.response.headers.Set-Cookie}}
+
+### C-13 detalle: el personal autorizado ve cualquier venta
+# Esperado: HTTP/1.1 200 OK.
+GET {{base}}/ventas/{{ventaC13.response.body.$.id}}
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+### C-13 listado: el vendedor no lista todas las ventas
+# Esperado: HTTP/1.1 403 Forbidden (GET /ventas es solo ADMIN).
+GET {{base}}/ventas/
+Cookie: {{loginVendedor.response.headers.Set-Cookie}}
+
+### C-13 listado: el administrador si
+# Esperado: HTTP/1.1 200 OK con PaginatedResponse.
+GET {{base}}/ventas/
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}

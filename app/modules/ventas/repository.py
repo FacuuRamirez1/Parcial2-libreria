@@ -1,6 +1,6 @@
 """Repositorio del módulo ventas.
 
-Métodos genéricos de BaseRepository más detalla con precarga fija (sin N+1)
+Métodos genéricos de BaseRepository más el detalle con precarga fija (sin N+1)
 y filtrado opcional por cliente; escritura por flush() (el commit es
 responsabilidad del UnitOfWork).
 """
@@ -18,7 +18,7 @@ from app.modules.ventas.models import RenglonVenta, Venta
 
 
 class VentaRepository(BaseRepository[Venta]):
-    """Acceso a Venta con detalla precargada y filtro opcional por cliente."""
+    """Acceso a Venta con detalle precargado y filtro opcional por cliente."""
 
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session, Venta)
@@ -36,6 +36,7 @@ class VentaRepository(BaseRepository[Venta]):
             select(Venta)
             .where(Venta.id == id)
             .options(*self._opciones_detalle())
+            .execution_options(populate_existing=True)
         )
         return resultado.first()
 

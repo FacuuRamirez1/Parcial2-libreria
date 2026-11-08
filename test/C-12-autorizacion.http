@@ -97,7 +97,7 @@ POST {{base}}/libros/
 Content-Type: application/json
 Cookie: {{loginVendedor.response.headers.Set-Cookie}}
 
-{ "isbn": "978-950-00-1201-0", "titulo": "Libro del Vendedor", "precio": "100.00", "stock": 1, "editorial_id": 1 }
+{ "isbn": "978-950-00-1201-0", "titulo": "Libro del Vendedor", "precio": "100.00", "stock_inicial": 1, "editorial_id": 1 }
 
 ### C-12 403: crear venta como cliente
 # Esperado: HTTP/1.1 403 Forbidden. {"detail": "No tenés permiso para esta operación"}

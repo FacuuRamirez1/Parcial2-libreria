@@ -46,7 +46,7 @@ Content-Type: application/json
   "isbn": "978-950-00-0901-4",
   "titulo": "Paginación A",
   "precio": "1000.00",
-  "stock": 1,
+  "stock_inicial": 1,
   "editorial_id": 1,
   "genero_id": 1
 }
@@ -60,7 +60,7 @@ Content-Type: application/json
   "isbn": "978-950-00-0902-1",
   "titulo": "Paginación B",
   "precio": "1000.00",
-  "stock": 1,
+  "stock_inicial": 1,
   "editorial_id": 1,
   "genero_id": 1
 }

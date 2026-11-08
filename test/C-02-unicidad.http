@@ -21,7 +21,7 @@ Content-Type: application/json
   "isbn": "978-950-00-0001-1",
   "titulo": "Duplicado",
   "precio": "100.00",
-  "stock": 1,
+  "stock_inicial": 1,
   "editorial_id": 1
 }
 

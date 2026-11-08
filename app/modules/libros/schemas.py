@@ -1,5 +1,6 @@
 """Contratos de entrada/salida del módulo libros."""
 
+from datetime import datetime
 from decimal import Decimal
 from typing import Literal
 
@@ -27,7 +28,7 @@ class LibroCreate(SQLModel):
     isbn: str = Field(max_length=17)
     titulo: str = Field(max_length=255)
     precio: Decimal = Field(gt=0, max_digits=10, decimal_places=2)
-    stock: int = Field(ge=0)
+    stock_inicial: int = Field(ge=0)
     editorial_id: int
     genero_id: int | None = None
     autores: list[LibroAutorCreate] = Field(default_factory=list)
@@ -46,9 +47,28 @@ class LibroUpdate(SQLModel):
     isbn: str | None = Field(default=None, max_length=17)
     titulo: str | None = Field(default=None, max_length=255)
     precio: Decimal | None = Field(default=None, gt=0, max_digits=10, decimal_places=2)
-    stock: int | None = Field(default=None, ge=0)
     editorial_id: int | None = None
     genero_id: int | None = None
+
+
+class ReposicionIn(SQLModel):
+    """Reposición de stock: solo la cantidad positiva (extra="forbid")."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    cantidad: int = Field(gt=0)
+
+
+class MovimientoStockRead(SQLModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    libro_id: int
+    venta_id: int | None = None
+    usuario_id: int
+    cantidad: int
+    motivo: str
+    cuando: datetime
 
 
 class LibroRead(SQLModel):

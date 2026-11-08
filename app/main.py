@@ -79,6 +79,7 @@ for modulo in (editoriales, generos, autores, libros):
     protegido.include_router(modulo.router_protegido)
 protegido.include_router(clientes.router_protegido)
 protegido.include_router(ventas.router_protegido)
+protegido.include_router(ventas.router_mis_ventas)
 protegido.include_router(personal_router)
 protegido.include_router(eventos_router)
 

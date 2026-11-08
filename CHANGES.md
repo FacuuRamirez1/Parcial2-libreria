@@ -339,7 +339,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-07 → C-08 → C-09* / C-10* →
 ## FASE 8 — Stock, bajas y ventas
 
 ### [C-13] `stock-movimientos-baja-logica-ventas`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` implementado (pendiente de archivar)
 - **Scope** (Ejercicio 6 parcial parte 2 y Ejercicio 8 parcial, 6 pts; US-117..US-121; RN-09, RN-10, RN-11, RN-13, RN-14):
   - Único punto de escritura de stock; `PATCH /libros/{id}` con `stock` → 422 (`extra="forbid"`)
   - `POST /libros` con `stock_inicial` (movimiento de alta); `POST /libros/{id}/reponer`; `GET /libros/{id}/movimientos`
@@ -441,7 +441,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-07 → C-08 → C-09* / C-10* →
 | C-10 | modelos-acceso-stock-migraciones | P2 (10) + P7 trigger | C-08 | CRITICO | `[x]` |
 | C-11 | autenticacion | P4 (14) + P7 intento | C-09, C-10 | CRITICO | `[x]` |
 | C-12 | autorizacion-roles-y-rutas | P5 (12) | C-11 | CRITICO | `[x]` |
-| C-13 | stock-movimientos-baja-logica-ventas | P6 parte 2 + P8 (6) | C-12, C-10 | ALTO | `[ ]` |
+| C-13 | stock-movimientos-baja-logica-ventas | P6 parte 2 + P8 (6) | C-12, C-10 | ALTO | `[x]` |
 | C-14 | seed-casos-y-evidencia | transversal | C-13 | MEDIO | `[ ]` |
 | C-15 | imagen-docker-tp-cap1a4 | P9 (11) | — | ALTO | `[ ]` |
 | C-16 | despliegue-vps | P10 (7) | C-15 | ALTO | `[ ]` |

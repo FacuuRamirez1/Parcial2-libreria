@@ -42,6 +42,15 @@ PATCH {{base}}/libros/1
 Content-Type: application/json
 
 {
+  "titulo": "Rayuela (edición anotada)"
+}
+
+### PATCH con stock: el stock no se edita directo (C-13)
+# Esperado: HTTP/1.1 422 Unprocessable Entity (campo extra prohibido)
+PATCH {{base}}/libros/1
+Content-Type: application/json
+
+{
   "stock": 20
 }
 
