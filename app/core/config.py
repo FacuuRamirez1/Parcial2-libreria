@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     DB_POOL_SIZE: int = Field(default=5)
     COOKIE_SECURE: bool = Field(default=False)
     ACCESS_TOKEN_MINUTES: int = Field(default=30)
+    BCRYPT_CONCURRENCIA: int = Field(default=4)  # cálculos bcrypt simultáneos (semáforo)
+    JWT_ALGORITMO: str = Field(default="HS256")
 
     # SQL en consola.
     SQL_ECHO: bool = Field(default=False)

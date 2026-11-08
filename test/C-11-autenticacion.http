@@ -1,0 +1,484 @@
+@base = http://127.0.0.1:8000
+
+# C-11: autenticación (registro, login con límite de intentos).
+# Requiere `alembic upgrade head` (cabeza 0004) y `python scripts/seed.py` antes de correr este archivo.
+# El seed deja los clientes ana.perez@example.com y tomas@example.com SIN usuario.
+# Los correos de registro llevan {{$timestamp}} para no depender de corridas anteriores.
+
+# ===================== REGISTRO (POST /auth/registro) =====================
+
+### C-11 registro: alta válida
+# Esperado: HTTP/1.1 201 Created. Cuerpo con exactamente {id, email, nombre, cliente_id}; SIN Set-Cookie
+# y sin password_hash ni password.
+# @name registroOk
+POST {{base}}/auth/registro
+Content-Type: application/json
+
+{
+  "email": "reg{{$timestamp}}@example.com",
+  "nombre": "Lucas Gómez",
+  "password": "clave-segura-1"
+}
+
+### C-11 registro: correo repetido (mismo correo que el anterior; usar uno fijo si se corre suelto)
+# Esperado: HTTP/1.1 409 Conflict. Cuerpo: {"detail": "El correo ya está registrado"}
+# (sin texto de la base: nada de "uq_", "duplicate key", "violates").
+POST {{base}}/auth/registro
+Content-Type: application/json
+
+{
+  "email": "{{registroOk.response.body.$.email}}",
+  "nombre": "Lucas Otra Vez",
+  "password": "clave-segura-1"
+}
+
+### C-11 registro: correo de un cliente del mostrador (seed, sin usuario)
+# Esperado: HTTP/1.1 409 Conflict. {"detail": "El correo ya está registrado"}
+# psql: SELECT usuario_id FROM cliente WHERE email='tomas@example.com';  -> NULL (no se apropió la ficha)
+#       SELECT count(*) FROM usuario WHERE email='tomas@example.com';    -> 0
+POST {{base}}/auth/registro
+Content-Type: application/json
+
+{
+  "email": "tomas@example.com",
+  "nombre": "Impostor",
+  "password": "clave-segura-1"
+}
+
+### C-11 registro: campo "rol" de más
+# Esperado: HTTP/1.1 422 Unprocessable Entity (extra="forbid"); no se crea ninguna fila.
+POST {{base}}/auth/registro
+Content-Type: application/json
+
+{
+  "email": "rol{{$timestamp}}@example.com",
+  "nombre": "Quiero Ser Admin",
+  "password": "clave-segura-1",
+  "rol": "ADMIN"
+}
+
+### C-11 registro: contraseña de 73 bytes
+# Esperado: HTTP/1.1 422 Unprocessable Entity (límite de 72 BYTES, no 500).
+POST {{base}}/auth/registro
+Content-Type: application/json
+
+{
+  "email": "b73{{$timestamp}}@example.com",
+  "nombre": "Setenta y tres",
+  "password": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}
+
+### C-11 registro: 36 letras "ñ" = 72 bytes (justo en el límite)
+# Esperado: HTTP/1.1 201 Created.
+POST {{base}}/auth/registro
+Content-Type: application/json
+
+{
+  "email": "ene36{{$timestamp}}@example.com",
+  "nombre": "Treinta y seis eñes",
+  "password": "ññññññññññññññññññññññññññññññññññññ"
+}
+
+### C-11 registro: 37 letras "ñ" = 74 bytes
+# Esperado: HTTP/1.1 422 Unprocessable Entity.
+POST {{base}}/auth/registro
+Content-Type: application/json
+
+{
+  "email": "ene37{{$timestamp}}@example.com",
+  "nombre": "Treinta y siete eñes",
+  "password": "ñññññññññññññññññññññññññññññññññññññ"
+}
+
+### C-11 registro: contraseña de 7 caracteres
+# Esperado: HTTP/1.1 422 Unprocessable Entity.
+POST {{base}}/auth/registro
+Content-Type: application/json
+
+{
+  "email": "corta{{$timestamp}}@example.com",
+  "nombre": "Clave Corta",
+  "password": "1234567"
+}
+
+### C-11 registro: correo sin formato
+# Esperado: HTTP/1.1 422 Unprocessable Entity.
+POST {{base}}/auth/registro
+Content-Type: application/json
+
+{
+  "email": "no-es-un-correo",
+  "nombre": "Sin Arroba",
+  "password": "clave-segura-1"
+}
+
+### C-11 registro: el correo se normaliza (espacios y mayúsculas)
+# Esperado: HTTP/1.1 201 Created con "email": "norm@example.com" (usuario y cliente quedan en minúsculas).
+# Si se corre dos veces sobre la misma base: 409 (correo fijo); correr `python scripts/seed.py` antes.
+POST {{base}}/auth/registro
+Content-Type: application/json
+
+{
+  "email": "  Norm@Example.COM ",
+  "nombre": "Normalizado",
+  "password": "clave-segura-1"
+}
+
+### C-11 422 sin eco: registro con contraseña de 73 bytes (design D-14)
+# Esperado: HTTP/1.1 422 Unprocessable Entity. Cada elemento de "detail" trae type, loc y msg, y NO trae la clave
+# "input". El cuerpo NO contiene el texto de la contraseña enviada (73 letras "a"). Verificar a ojo en la respuesta
+# (o con curl ... | grep -c '"input"' -> 0).
+POST {{base}}/auth/registro
+Content-Type: application/json
+
+{
+  "email": "eco73{{$timestamp}}@example.com",
+  "nombre": "Sin Eco",
+  "password": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}
+
+### C-11 422 sin eco: login con contraseña de 37 letras "ñ" (design D-14)
+# Esperado: HTTP/1.1 422 Unprocessable Entity. Sin la clave "input" y sin las letras "ñ" enviadas en el cuerpo.
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "login.cliente@example.com", "password": "ñññññññññññññññññññññññññññññññññññññ" }
+
+# psql tras la corrida ("sin filas sueltas"): cada correo registrado tiene exactamente 1 fila en cada tabla.
+#   SELECT u.email, count(DISTINCT u.id) us, count(DISTINCT a.id) roles, count(DISTINCT c.id) clientes
+#   FROM usuario u LEFT JOIN asignacion_rol a ON a.usuario_id=u.id AND a.rol='CLIENTE' AND a.revocada_en IS NULL
+#   LEFT JOIN cliente c ON c.usuario_id=u.id GROUP BY u.email;     -> 1 | 1 | 1 por fila
+
+# ===================== LOGIN (POST /auth/login) =====================
+# Casos C-03, C-04 y C-05 de la consigna. Los usuarios se crean primero por registro (el seed todavia no
+# carga usuarios: eso es C-14). Contrasena de todos: "clave-segura-1". Correo normalizado en minusculas.
+
+### C-11 login: preparar usuarios (se registran una vez; si ya existen responde 409, y esta bien)
+# Esperado: 201 la primera vez, 409 despues.
+POST {{base}}/auth/registro
+Content-Type: application/json
+
+{ "email": "login.cliente@example.com", "nombre": "Cliente Login", "password": "clave-segura-1" }
+
+###
+# Esperado: 201 la primera vez, 409 despues.
+POST {{base}}/auth/registro
+Content-Type: application/json
+
+{ "email": "bloqueo@example.com", "nombre": "Cliente Bloqueo", "password": "clave-segura-1" }
+
+###
+# Esperado: 201 la primera vez, 409 despues.
+POST {{base}}/auth/registro
+Content-Type: application/json
+
+{ "email": "reinicio@example.com", "nombre": "Cliente Reinicio", "password": "clave-segura-1" }
+
+### C-03 login correcto (con mayusculas y espacios en el correo: se normaliza)
+# Esperado: HTTP/1.1 200 OK
+#   Cuerpo exacto: {"mensaje": "Sesión iniciada", "debe_cambiar_password": false, "expira_en_segundos": 1800}
+#   (el cuerpo NO contiene el token ni datos del usuario)
+#   Set-Cookie: access_token=<jwt>; HttpOnly; Max-Age=1800; Path=/; SameSite=lax   (sin "Secure" con COOKIE_SECURE=false)
+# psql: SELECT email, ip, exito FROM intento_acceso ORDER BY id DESC LIMIT 1;  -> login.cliente@example.com | 127.0.0.1 | t
+# @name loginCliente
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "  LOGIN.Cliente@example.com ", "password": "clave-segura-1" }
+
+### C-04 login: contrasena incorrecta de un correo existente
+# Esperado: HTTP/1.1 401 Unauthorized. {"detail": "Correo o contraseña incorrectos"}; sin Set-Cookie.
+# Tiempo: cientos de milisegundos (hay una verificacion bcrypt de costo 12).
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "login.cliente@example.com", "password": "clave-equivocada" }
+
+### C-04 login: correo inexistente
+# Esperado: HTTP/1.1 401 Unauthorized, MISMO cuerpo que el caso anterior; sin Set-Cookie.
+# Tiempo: del mismo orden que el caso anterior (se verifica contra el hash ficticio), NO pocos milisegundos.
+# psql: SELECT email, exito FROM intento_acceso WHERE email='nadie@example.com'; -> una fila, exito = f
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "nadie@example.com", "password": "clave-equivocada" }
+
+### C-04 login: campo extra
+# Esperado: HTTP/1.1 422 Unprocessable Entity (extra="forbid"); no deja fila en intento_acceso.
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "login.cliente@example.com", "password": "clave-segura-1", "recordar": true }
+
+### C-04 login: contrasena de 37 letras "ñ" (74 bytes)
+# Esperado: HTTP/1.1 422 Unprocessable Entity (no 500, no se calcula bcrypt).
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "login.cliente@example.com", "password": "ñññññññññññññññññññññññññññññññññññññ" }
+
+### C-05 limite de intentos: seis fallos seguidos del mismo correo e IP
+# Esperado: los cinco primeros 401 y el sexto 429 con Retry-After (1 a 60) y
+#   {"detail": "Demasiados intentos fallidos; probá de nuevo más tarde"}. El sexto responde en pocos ms (sin bcrypt).
+# Correr los seis seguidos, dentro de 60 segundos.
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "bloqueo@example.com", "password": "mala-1" }
+
+###
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "bloqueo@example.com", "password": "mala-2" }
+
+###
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "bloqueo@example.com", "password": "mala-3" }
+
+###
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "bloqueo@example.com", "password": "mala-4" }
+
+###
+# Esperado: 401 (quinto fallo)
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "bloqueo@example.com", "password": "mala-5" }
+
+###
+# Esperado: HTTP/1.1 429 Too Many Requests, Retry-After: <1..60>, en pocos milisegundos
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "bloqueo@example.com", "password": "mala-6" }
+
+### C-05 limite superado con la contrasena CORRECTA
+# Esperado: HTTP/1.1 429 Too Many Requests (el limite se decide antes de verificar); sin Set-Cookie.
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "bloqueo@example.com", "password": "clave-segura-1" }
+
+# psql tras los seis fallos (el 429 no se anota):
+#   SELECT count(*) FROM intento_acceso WHERE email='bloqueo@example.com' AND ip='127.0.0.1' AND exito = false;  -> 5
+
+### C-05 el limite es por correo: otro correo desde la misma IP no se ve afectado
+# Esperado: HTTP/1.1 200 OK
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "login.cliente@example.com", "password": "clave-segura-1" }
+
+### C-05 cuatro fallos, un exito y otro fallo (el exito reinicia la cuenta)
+# Esperado: 401, 401, 401, 401, luego 200, luego 401 (NO 429). intento_acceso conserva las 6 filas.
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "reinicio@example.com", "password": "mala-1" }
+
+###
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "reinicio@example.com", "password": "mala-2" }
+
+###
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "reinicio@example.com", "password": "mala-3" }
+
+###
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "reinicio@example.com", "password": "mala-4" }
+
+###
+# Esperado: 200 (exito)
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "reinicio@example.com", "password": "clave-segura-1" }
+
+###
+# Esperado: 401 (no 429)
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "reinicio@example.com", "password": "mala-6" }
+
+# psql: SELECT count(*), count(*) FILTER (WHERE exito) FROM intento_acceso WHERE email='reinicio@example.com';  -> 6 | 1
+
+# ---- Salidas verificadas (corrida de C-11 sobre base recien sembrada, costo bcrypt 12) ----
+# Tiempos medidos con un cliente HTTP persistente (curl -w "%{time_total}" da lo mismo):
+#   contrasena mala (correo existente) : 401 en ~688 ms
+#   correo inexistente                 : 401 en ~708 ms   (mismo orden: ambos hacen una verificacion bcrypt)
+#   sexto intento bloqueado            : 429 en ~11-21 ms (sin bcrypt; con SQL_ECHO=true solo se ve la consulta del contador,
+#                                        ningun "SELECT ... FROM usuario", y la transaccion termina en ROLLBACK de solo lectura)
+# Set-Cookie del login: access_token=<jwt>; HttpOnly; Max-Age=1800; Path=/; SameSite=lax
+# psql (intento_acceso agrupado por correo/exito tras la corrida de login):
+#   bloqueo@example.com   | 127.0.0.1 | f | 5     <- los 5 fallos; el 429 (sexto y "correcta") NO se anoto
+#   nadie@example.com     | 127.0.0.1 | f | 1     <- el correo inexistente tambien deja fila
+#   reinicio@example.com  | 127.0.0.1 | f | 5  y  | t | 1   (en total 6 filas, 1 exito: 4 fallos + exito + fallo)
+#   login.cliente@example.com ... | t | (los logins correctos quedan anotados)
+
+
+# ===================== SESION (GET /auth/yo, POST /auth/logout) =====================
+# Casos de sesion de la consigna. Cada llamada va con `# @no-cookie-jar` y la cookie se pasa a mano.
+# Requiere el usuario login.cliente@example.com (se registra arriba) y haber corrido `loginCliente`.
+
+### C-11 yo: con cookie valida
+# Esperado: HTTP/1.1 200 OK. Cuerpo: {"id": <int>, "email": "login.cliente@example.com", "nombre": "Cliente Login",
+#   "debe_cambiar_password": false, "roles_vigentes": ["CLIENTE"], "roles_token": ["CLIENTE"]}  -- SIN password_hash.
+# @no-cookie-jar
+GET {{base}}/auth/yo
+Cookie: {{loginCliente.response.headers.Set-Cookie}}
+
+### C-11 yo: sin cookie
+# Esperado: HTTP/1.1 401 Unauthorized. {"detail": "No hay una sesión válida"}
+# @no-cookie-jar
+GET {{base}}/auth/yo
+
+### C-11 yo: token en Authorization y sin cookie (el token solo se lee de la cookie)
+# Esperado: HTTP/1.1 401 Unauthorized. {"detail": "No hay una sesión válida"}
+# (poner en lugar de <token> el valor de access_token del Set-Cookie del login)
+# @no-cookie-jar
+GET {{base}}/auth/yo
+Authorization: Bearer <token>
+
+### C-11 yo: token alterado (un caracter de la firma cambiado)
+# Esperado: HTTP/1.1 401 Unauthorized. {"detail": "No hay una sesión válida"}
+# (copiar el valor de la cookie y cambiar un caracter del MEDIO de la firma: el ultimo caracter de un JWT HS256 solo aporta 4 bits y a veces el cambio no altera la firma decodificada)
+# @no-cookie-jar
+GET {{base}}/auth/yo
+Cookie: access_token=<token con el ultimo caracter cambiado>
+
+### C-11 logout: con sesion
+# Esperado: HTTP/1.1 200 OK. {"mensaje": "Sesión cerrada"} y
+#   Set-Cookie: access_token=""; HttpOnly; Max-Age=0; Path=/; SameSite=lax   (borra la cookie; expires en el pasado)
+# @no-cookie-jar
+POST {{base}}/auth/logout
+Cookie: {{loginCliente.response.headers.Set-Cookie}}
+
+### C-11 logout: sin sesion
+# Esperado: HTTP/1.1 200 OK. {"mensaje": "Sesión cerrada"} y el mismo Set-Cookie que borra la cookie.
+# @no-cookie-jar
+POST {{base}}/auth/logout
+
+# Pasos con psql (sobre la cookie de loginCliente, que sigue siendo un token valido):
+#  1) Revocar el rol:   UPDATE asignacion_rol SET revocada_en = now() WHERE usuario_id = (SELECT id FROM usuario WHERE email='login.cliente@example.com');
+#     GET /auth/yo con la misma cookie -> 200 con "roles_vigentes": [] y "roles_token": ["CLIENTE"]
+#  2) Rol vencido:      UPDATE asignacion_rol SET revocada_en = NULL, vence_en = now() - interval '1 hour' WHERE usuario_id = (...);
+#     GET /auth/yo -> 200 con "roles_vigentes": []
+#  3) Desactivar:       UPDATE usuario SET activo = false WHERE email='login.cliente@example.com';
+#     GET /auth/yo con la misma cookie -> 401 {"detail": "No hay una sesión válida"}
+#     (restaurar: UPDATE usuario SET activo = true ...; UPDATE asignacion_rol SET revocada_en = NULL, vence_en = NULL ...)
+
+
+# ===================== CAMBIO DE CONTRASENA (POST /auth/cambiar-password) =====================
+# Usa un usuario propio (cambiopw@example.com) para no alterar la contrasena de login.cliente@example.com.
+# Requiere base recien sembrada (el correo fijo se registra una sola vez por corrida).
+
+### C-11 cambio: preparar usuario
+# Esperado: HTTP/1.1 201 Created.
+POST {{base}}/auth/registro
+Content-Type: application/json
+
+{ "email": "cambiopw@example.com", "nombre": "Cambio Password", "password": "clave-segura-1" }
+
+### C-11 cambio: login del usuario
+# Esperado: HTTP/1.1 200 OK con Set-Cookie access_token.
+# @name loginCambio
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "cambiopw@example.com", "password": "clave-segura-1" }
+
+### C-11 cambio: sin cookie
+# Esperado: HTTP/1.1 401 Unauthorized. {"detail": "No hay una sesión válida"}
+# @no-cookie-jar
+POST {{base}}/auth/cambiar-password
+Content-Type: application/json
+
+{ "password_actual": "clave-segura-1", "password_nueva": "otra-clave-2" }
+
+### C-11 cambio: contrasena actual equivocada
+# Esperado: HTTP/1.1 422 Unprocessable Entity. {"detail": "La contraseña actual no es correcta"}
+# No cambia nada y no escribe evento_seguridad.
+# @no-cookie-jar
+POST {{base}}/auth/cambiar-password
+Content-Type: application/json
+Cookie: {{loginCambio.response.headers.Set-Cookie}}
+
+{ "password_actual": "clave-equivocada", "password_nueva": "otra-clave-2" }
+
+### C-11 cambio: nueva de 73 bytes
+# Esperado: HTTP/1.1 422 (contrato). El cuerpo no contiene la contrasena ni la clave "input".
+# @no-cookie-jar
+POST {{base}}/auth/cambiar-password
+Content-Type: application/json
+Cookie: {{loginCambio.response.headers.Set-Cookie}}
+
+{ "password_actual": "clave-segura-1", "password_nueva": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }
+
+### C-11 cambio: actual de 80 bytes
+# Esperado: HTTP/1.1 422 (contrato; bcrypt nunca ve mas de 72 bytes).
+# @no-cookie-jar
+POST {{base}}/auth/cambiar-password
+Content-Type: application/json
+Cookie: {{loginCambio.response.headers.Set-Cookie}}
+
+{ "password_actual": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "password_nueva": "otra-clave-2" }
+
+### C-11 cambio: campo extra
+# Esperado: HTTP/1.1 422 (extra="forbid").
+# @no-cookie-jar
+POST {{base}}/auth/cambiar-password
+Content-Type: application/json
+Cookie: {{loginCambio.response.headers.Set-Cookie}}
+
+{ "password_actual": "clave-segura-1", "password_nueva": "otra-clave-2", "rol": "ADMIN" }
+
+# Antes del cambio valido, forzar la obligacion de cambiar la contrasena (psql):
+#   UPDATE usuario SET debe_cambiar_password = true WHERE email = 'cambiopw@example.com';
+#   SELECT count(*) FROM evento_seguridad WHERE actor = 'cambiopw@example.com';   -> 0 (los rechazos no escriben)
+
+### C-11 cambio: valido
+# Esperado: HTTP/1.1 200 OK. {"mensaje": "Contraseña actualizada"} y SIN cabecera Set-Cookie (no hay token nuevo).
+# @no-cookie-jar
+POST {{base}}/auth/cambiar-password
+Content-Type: application/json
+Cookie: {{loginCambio.response.headers.Set-Cookie}}
+
+{ "password_actual": "clave-segura-1", "password_nueva": "otra-clave-2" }
+
+# psql: SELECT actor, accion FROM evento_seguridad WHERE actor = 'cambiopw@example.com';
+#   -> cambiopw@example.com | Cambio de contraseña   (una sola fila)
+#       SELECT debe_cambiar_password FROM usuario WHERE email = 'cambiopw@example.com';  -> f
+
+### C-11 cambio: la misma cookie sigue sirviendo
+# Esperado: HTTP/1.1 200 OK con "debe_cambiar_password": false.
+# @no-cookie-jar
+GET {{base}}/auth/yo
+Cookie: {{loginCambio.response.headers.Set-Cookie}}
+
+### C-11 cambio: login con la contrasena vieja
+# Esperado: HTTP/1.1 401 Unauthorized.
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "cambiopw@example.com", "password": "clave-segura-1" }
+
+### C-11 cambio: login con la contrasena nueva
+# Esperado: HTTP/1.1 200 OK.
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "cambiopw@example.com", "password": "otra-clave-2" }

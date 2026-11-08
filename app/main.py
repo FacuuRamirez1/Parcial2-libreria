@@ -18,6 +18,7 @@ from app.modules.editoriales.router import router as editoriales_router
 from app.modules.generos.router import router as generos_router
 from app.modules.health.router import router as health_router
 from app.modules.libros.router import router as libros_router
+from app.modules.usuarios.router import router as usuarios_router
 from app.modules.ventas.router import router as ventas_router
 
 
@@ -42,6 +43,9 @@ configurar_logging()
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = Settings()  # falla con mensaje claro si faltan JWT_SECRET_KEY / POSTGRES_PASSWORD
+    app.state.settings = settings
+    # El semáforo se crea aquí, ya dentro del bucle de eventos (nunca al importar el módulo).
+    app.state.semaforo_bcrypt = asyncio.Semaphore(settings.BCRYPT_CONCURRENCIA)
     engine = crear_motor(settings)
     app.state.engine = engine
     app.state.session_factory = crear_fabrica_sesiones(engine)
@@ -64,3 +68,4 @@ app.include_router(autores_router)
 app.include_router(libros_router)
 app.include_router(clientes_router)
 app.include_router(ventas_router)
+app.include_router(usuarios_router)

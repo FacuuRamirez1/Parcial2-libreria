@@ -295,7 +295,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-07 → C-08 → C-09* / C-10* →
 ## FASE 7 — Autenticación y autorización
 
 ### [C-11] `autenticacion`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` archivado
 - **Scope** (Ejercicio 4 parcial, 14 pts; parte `intento_acceso` del Ejercicio 7; US-107..US-109, US-116; RN-02, RN-07, RN-08, RN-15):
   - Módulo `usuarios` (`models/schemas/repository/unit_of_work/service/router`) y bcrypt en `app/core/`
   - bcrypt siempre fuera del bucle de eventos (`asyncio.to_thread`) y bajo un semáforo; costo de `Settings`; hash calculado antes de abrir la transacción; límite de 72 **bytes** → 422 en registro, login y cambio
@@ -439,7 +439,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-07 → C-08 → C-09* / C-10* →
 | C-08 | settings-y-base-de-capas | P1 (6) | C-07 | ALTO | `[x]` |
 | C-09 | modulos-a-repositorios-uow | P6 (16) + P3 (8) | C-08 | ALTO | `[x]` |
 | C-10 | modelos-acceso-stock-migraciones | P2 (10) + P7 trigger | C-08 | CRITICO | `[x]` |
-| C-11 | autenticacion | P4 (14) + P7 intento | C-09, C-10 | CRITICO | `[ ]` |
+| C-11 | autenticacion | P4 (14) + P7 intento | C-09, C-10 | CRITICO | `[x]` |
 | C-12 | autorizacion-roles-y-rutas | P5 (12) | C-11 | CRITICO | `[ ]` |
 | C-13 | stock-movimientos-baja-logica-ventas | P6 parte 2 + P8 (6) | C-12, C-10 | ALTO | `[ ]` |
 | C-14 | seed-casos-y-evidencia | transversal | C-13 | MEDIO | `[ ]` |
