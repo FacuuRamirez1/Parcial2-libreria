@@ -32,11 +32,19 @@ El esquema SHALL incluir la tabla `autor` con las columnas `id` (clave primaria 
 - **THEN** la base acepta ambos registros con `id` distintos
 
 ### Requirement: Tabla libro con ISBN único
-El esquema SHALL incluir la tabla `libro` con las columnas `id`, `isbn`, `titulo`, `precio`, `stock`, `editorial_id` y `genero_id`. `isbn` SHALL ser `VARCHAR(17)` obligatorio (ISBN-13 con guiones) y `titulo` `VARCHAR(255)` obligatorio; `stock` entero obligatorio. El `isbn` SHALL ser único (RN-01).
+El esquema SHALL incluir la tabla `libro` con las columnas `id`, `isbn`, `titulo`, `precio`, `stock`, `editorial_id`, `genero_id` y `borrado_en`. `isbn` SHALL ser `VARCHAR(17)` obligatorio (ISBN-13 con guiones) y `titulo` `VARCHAR(255)` obligatorio; `stock` entero obligatorio. El `isbn` SHALL ser único solo entre los libros vigentes (`borrado_en IS NULL`), mediante un índice único parcial que reemplaza al UNIQUE común (RN-01, DD-09).
 
 #### Scenario: ISBN repetido
-- **WHEN** se intenta guardar un libro con un `isbn` que ya tiene otro libro
+- **WHEN** se intenta guardar un libro vigente con un `isbn` que ya tiene otro libro vigente
 - **THEN** la base rechaza la escritura por violación de unicidad
+
+#### Scenario: ISBN de un libro dado de baja
+- **WHEN** existe un libro con `isbn = '978-950-00-0001-1'` y `borrado_en` con fecha, y se guarda un libro vigente con el mismo `isbn`
+- **THEN** la base acepta la escritura y ambas filas conviven
+
+#### Scenario: Sin UNIQUE común sobre el ISBN
+- **WHEN** se inspeccionan las restricciones e índices de `libro`
+- **THEN** no existe la restricción `uq_libro_isbn` y existe un índice único sobre `isbn` con la condición `borrado_en IS NULL`
 
 #### Scenario: Tipo de las columnas de texto de libro
 - **WHEN** se inspecciona el DDL de `libro` para PostgreSQL
@@ -126,3 +134,18 @@ Cada relación del catálogo SHALL navegarse desde los dos extremos: un libro ex
 #### Scenario: Libros de una editorial
 - **WHEN** se lee una editorial con sus libros precargados
 - **THEN** la editorial da acceso a la colección de sus libros, y cada libro a la misma editorial
+
+### Requirement: Marca de baja lógica del libro
+La tabla `libro` SHALL tener la columna `borrado_en`, `timestamptz` y nula. Un libro sin `borrado_en` es vigente; uno con fecha está dado de baja y su fila se conserva, de modo que las ventas que lo referencian siguen siendo válidas.
+
+#### Scenario: Libro nuevo vigente
+- **WHEN** se guarda un libro sin indicar `borrado_en`
+- **THEN** queda con `borrado_en` nulo
+
+#### Scenario: Columna con zona horaria
+- **WHEN** se inspecciona el DDL de `libro`
+- **THEN** `borrado_en` es `timestamp with time zone` y admite nulo
+
+#### Scenario: Libros existentes al migrar
+- **WHEN** se aplica la migración sobre una base con libros cargados
+- **THEN** todos quedan con `borrado_en` nulo y conservan sus demás datos

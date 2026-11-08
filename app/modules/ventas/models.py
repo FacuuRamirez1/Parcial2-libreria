@@ -12,7 +12,7 @@ from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
     from app.modules.clientes.models import Cliente
-    from app.modules.libros.models import Libro
+    from app.modules.libros.models import Libro, MovimientoStock
 
 
 class Venta(SQLModel, table=True):
@@ -36,6 +36,9 @@ class Venta(SQLModel, table=True):
             "cascade": "all, delete-orphan",
             "order_by": "RenglonVenta.id",
         },
+    )
+    movimientos: list["MovimientoStock"] = Relationship(
+        back_populates="venta", sa_relationship_kwargs={"lazy": "raise"}
     )
 
 

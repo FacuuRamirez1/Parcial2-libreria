@@ -272,7 +272,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-07 → C-08 → C-09* / C-10* →
   - `knowledge-base/09_decisiones_y_supuestos.md` §DD-08, §DD-09, §SU-11
 
 ### [C-10] `modelos-acceso-stock-migraciones`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` archivado
 - **Scope** (Ejercicio 2 parcial, 10 pts; trigger del Ejercicio 7 parcial, 10 pts; US-104, US-105, US-115; RN-01, RN-03, RN-12):
   - Modelos: `Usuario`, `AsignacionRol`, `IntentoAcceso`, `EventoSeguridad`, `MovimientoStock` con CHECK/UNIQUE e índice por FK; índice único parcial `(usuario_id, rol) WHERE revocada_en IS NULL`
   - Cambios: `cliente.usuario_id` (UNIQUE, nulo, FK) y `libro.borrado_en` + índice único parcial del ISBN (reemplaza `UNIQUE(isbn)`, DD-09); solo se agregan columnas
@@ -438,7 +438,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-07 → C-08 → C-09* / C-10* →
 | C-07 | asincronia-sin-bloqueos | 7 (10) | C-05 | MEDIO | `[x]` |
 | C-08 | settings-y-base-de-capas | P1 (6) | C-07 | ALTO | `[x]` |
 | C-09 | modulos-a-repositorios-uow | P6 (16) + P3 (8) | C-08 | ALTO | `[x]` |
-| C-10 | modelos-acceso-stock-migraciones | P2 (10) + P7 trigger | C-08 | CRITICO | `[ ]` |
+| C-10 | modelos-acceso-stock-migraciones | P2 (10) + P7 trigger | C-08 | CRITICO | `[x]` |
 | C-11 | autenticacion | P4 (14) + P7 intento | C-09, C-10 | CRITICO | `[ ]` |
 | C-12 | autorizacion-roles-y-rutas | P5 (12) | C-11 | CRITICO | `[ ]` |
 | C-13 | stock-movimientos-baja-logica-ventas | P6 parte 2 + P8 (6) | C-12, C-10 | ALTO | `[ ]` |

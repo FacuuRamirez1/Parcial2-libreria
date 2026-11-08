@@ -25,6 +25,7 @@ RAIZ = Path(__file__).resolve().parent.parent
 if str(RAIZ) not in sys.path:
     sys.path.insert(0, str(RAIZ))
 
+import app.models  # noqa: E402,F401  (registra todos los modelos para que los mappers resuelvan)
 from app.core.config import Settings  # noqa: E402
 from app.modules.autores.models import Autor  # noqa: E402
 from app.modules.clientes.models import Cliente, PerfilCliente  # noqa: E402

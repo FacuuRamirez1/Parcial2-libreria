@@ -2,17 +2,20 @@
 
 import app.core.metadata  # noqa: F401  (la convención de nombres debe existir antes de declarar tablas)
 
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import CheckConstraint
+from sqlalchemy import CheckConstraint, Index, text
+from sqlalchemy.sql.sqltypes import DateTime
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
     from app.modules.autores.models import Autor
     from app.modules.editoriales.models import Editorial
     from app.modules.generos.models import Genero
-    from app.modules.ventas.models import RenglonVenta
+    from app.modules.usuarios.models import Usuario
+    from app.modules.ventas.models import RenglonVenta, Venta
 
 
 class Libro(SQLModel, table=True):
@@ -22,16 +25,24 @@ class Libro(SQLModel, table=True):
     __table_args__ = (
         CheckConstraint("precio > 0", name="precio_positivo"),
         CheckConstraint("stock >= 0", name="stock_no_negativo"),
+        # El ISBN es único solo entre libros vigentes (no dados de baja).
+        Index(
+            "ix_libro_isbn_vigente",
+            "isbn",
+            unique=True,
+            postgresql_where=text("borrado_en IS NULL"),
+        ),
     )
 
     id: int | None = Field(default=None, primary_key=True)
-    isbn: str = Field(max_length=17, unique=True)
+    isbn: str = Field(max_length=17)
     titulo: str = Field(max_length=255)
     precio: Decimal = Field(max_digits=10, decimal_places=2)
     stock: int
     editorial_id: int = Field(foreign_key="editorial.id", index=True)
     # genero_id admite NULL (agregación opcional); la 2ª migración lo agrega.
     genero_id: int | None = Field(default=None, foreign_key="genero.id", index=True)
+    borrado_en: datetime | None = Field(default=None, sa_type=DateTime(timezone=True))
 
     editorial: "Editorial" = Relationship(
         back_populates="libros", sa_relationship_kwargs={"lazy": "raise"}
@@ -48,6 +59,9 @@ class Libro(SQLModel, table=True):
         },
     )
     renglones: list["RenglonVenta"] = Relationship(
+        back_populates="libro", sa_relationship_kwargs={"lazy": "raise"}
+    )
+    movimientos: list["MovimientoStock"] = Relationship(
         back_populates="libro", sa_relationship_kwargs={"lazy": "raise"}
     )
 
@@ -73,4 +87,33 @@ class LibroAutor(SQLModel, table=True):
     )
     autor: "Autor" = Relationship(
         back_populates="autorias", sa_relationship_kwargs={"lazy": "raise"}
+    )
+
+
+class MovimientoStock(SQLModel, table=True):
+    """Movimiento de stock, de solo agregado (el trigger de la migración 0004 lo impone)."""
+
+    __tablename__ = "movimiento_stock"
+    __table_args__ = (CheckConstraint("cantidad <> 0", name="cantidad_no_cero"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    libro_id: int = Field(foreign_key="libro.id", index=True)
+    venta_id: int | None = Field(default=None, foreign_key="venta.id", index=True)
+    usuario_id: int = Field(foreign_key="usuario.id", index=True)
+    cantidad: int
+    motivo: str = Field(max_length=120)
+    cuando: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_type=DateTime(timezone=True),
+        sa_column_kwargs={"server_default": text("now()")},
+    )
+
+    libro: "Libro" = Relationship(
+        back_populates="movimientos", sa_relationship_kwargs={"lazy": "raise"}
+    )
+    venta: Optional["Venta"] = Relationship(
+        back_populates="movimientos", sa_relationship_kwargs={"lazy": "raise"}
+    )
+    usuario: "Usuario" = Relationship(
+        back_populates="movimientos", sa_relationship_kwargs={"lazy": "raise"}
     )

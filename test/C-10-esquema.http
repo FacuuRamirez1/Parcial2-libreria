@@ -1,0 +1,24 @@
+@base = http://127.0.0.1:8000
+
+# C-10: esquema 0003/0004 (índice único parcial de ISBN entre vigentes, trigger de solo agregado).
+# Requiere `alembic upgrade head` (cabeza 0004) y `python scripts/seed.py` antes de correr este archivo.
+# El trigger se prueba aparte con test/solo_agregado.sql (no hay endpoint que modifique movimientos).
+
+### C-10: ISBN repetido entre libros vigentes (el de "Rayuela", libro 1)
+# Esperado: HTTP/1.1 409 Conflict, con mensaje propio: sin nombres de tablas, índices ni restricciones
+# (nada de "uq_", "duplicate key", "violates", "libro").
+# Cuerpo: {"detail": "Conflicto de integridad: registro duplicado o referencia inválida"}
+POST {{base}}/libros/
+Content-Type: application/json
+
+{
+  "isbn": "978-950-00-0001-1",
+  "titulo": "Duplicado C-10",
+  "precio": "100.00",
+  "stock": 1,
+  "editorial_id": 1
+}
+
+### C-10: la aplicación está lista y llega a la base migrada
+# Esperado: HTTP/1.1 200 OK
+GET {{base}}/health/ready
