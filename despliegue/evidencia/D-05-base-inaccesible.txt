@@ -1,0 +1,22 @@
+# Caso D-05 — Base inaccesible → contenedor termina
+
+## Qué verifica
+Sin `DATABASE_URL` o base inaccesible → el contenedor termina con error, no queda sirviendo.
+
+## Comando / acción
+```
+docker run --rm --env-file <archivo-sin-database-url> libreria
+# (o apuntar DATABASE_URL a un host inaccesible)
+docker ps -a
+```
+
+## Fecha / hora
+PENDIENTE (registrar al ejecutar en el VPS).
+
+## Salida real del VPS
+```
+# <-- PEGAR AQUÍ LA SALIDA REAL (contenedor con estado Exited / error)
+```
+
+## Resultado esperado
+El contenedor termina con error y no queda sirviendo peticiones.

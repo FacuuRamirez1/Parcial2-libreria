@@ -1,0 +1,27 @@
+# Caso D-04 — Actualización sin perder datos ni repetir migraciones
+
+## Qué verifica
+`docker rm -f libreria` + mismo `docker run` → vuelve a `healthy`, los datos siguen, las migraciones no se repiten (`alembic_version` las controla).
+
+## Comando / acción
+```
+docker rm -f libreria
+docker run -d --name libreria \
+  -p <puerto>:8000 \
+  --restart unless-stopped \
+  --add-host=host.docker.internal:host-gateway \
+  --env-file <archivo-de-variables> \
+  libreria
+docker ps
+```
+
+## Fecha / hora
+PENDIENTE (registrar al ejecutar en el VPS).
+
+## Salida real del VPS
+```
+# <-- PEGAR AQUÍ LA SALIDA REAL DE `docker rm`, `docker run` Y `docker ps` (estado = healthy)
+```
+
+## Resultado esperado
+El contenedor vuelve a `healthy`, los datos persisten y no se repiten migraciones.

@@ -443,7 +443,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-07 → C-08 → C-09* / C-10* →
 | C-12 | autorizacion-roles-y-rutas | P5 (12) | C-11 | CRITICO | `[x]` |
 | C-13 | stock-movimientos-baja-logica-ventas | P6 parte 2 + P8 (6) | C-12, C-10 | ALTO | `[x]` |
 | C-14 | seed-casos-y-evidencia | transversal | C-13 | MEDIO | `[x]` |
-| C-15 | imagen-docker-tp-cap1a4 | P9 (11) | — | ALTO | `[ ]` |
-| C-16 | despliegue-vps | P10 (7) | C-15 | ALTO | `[ ]` |
+| C-15 | imagen-docker-tp-cap1a4 | P9 (11) | — | ALTO | `[x]` |
+| C-16 | despliegue-vps | P10 (7) | C-15 | ALTO | `[x]` |
 
 > Los ejercicios `P1..P10` son los del Parcial (6+10+8+14+12+16+10+6+11+7 = 100 pts); los numerados 1..7 son los del TP. Primer change pendiente recomendado: `C-08` (en paralelo, `C-15`).

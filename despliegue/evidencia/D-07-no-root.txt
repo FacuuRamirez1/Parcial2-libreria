@@ -1,0 +1,20 @@
+# Caso D-07 — Usuario no root
+
+## Qué verifica
+El contenedor corre como usuario no root (`id` != 0).
+
+## Comando / acción
+```
+docker exec libreria id
+```
+
+## Fecha / hora
+PENDIENTE (registrar al ejecutar en el VPS).
+
+## Salida real del VPS
+```
+# <-- PEGAR AQUÍ LA SALIDA REAL DE `docker exec libreria id`
+```
+
+## Resultado esperado
+El resultado NO es `uid=0(root)` (usuario `libreria`, uid 1000).

@@ -1,0 +1,23 @@
+@base = http://127.0.0.1:8000
+
+# C-01: un parámetro de ruta que no es entero.
+# Antes: `alembic upgrade head` y `python scripts/seed.py` (el caso no necesita datos).
+
+### C-01: GET /libros/no-es-entero
+# Esperado: HTTP/1.1 422 Unprocessable Entity, sin ejecutar el handler (no se consulta la base).
+# Cuerpo: {"detail": [{"type": "int_parsing", "loc": ["path", "id"], ...}]}
+GET {{base}}/libros/no-es-entero
+
+### C-01: el mismo rechazo en otros recursos
+# Esperado: HTTP/1.1 422 Unprocessable Entity
+GET {{base}}/clientes/abc
+
+### C-01: salud (no toca la base) y readiness (SELECT 1)
+# Esperado: HTTP/1.1 200 OK
+# Cuerpo: {"estado": "vivo"}
+GET {{base}}/health/live
+
+###
+# Esperado: HTTP/1.1 200 OK
+# Cuerpo: {"estado": "listo", "base": "conectada"}
+GET {{base}}/health/ready

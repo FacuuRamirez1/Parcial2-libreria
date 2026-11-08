@@ -1,0 +1,55 @@
+# Secretos y entorno (la consigna: .env nunca se sube; env.example sí)
+.env
+.env.*
+!env.example
+!.env.example
+
+# Entornos virtuales
+.venv/
+venv/
+env/
+ENV/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+
+# Logs y temporales
+*.log
+*.tmp
+*.bak
+
+# Bases de datos locales y dumps
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+
+# Editores y sistema operativo
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Herramientas de agentes (locales / generadas, no versionar)
+.atl/
+.claude/settings.local.json
+.claude/worktrees/

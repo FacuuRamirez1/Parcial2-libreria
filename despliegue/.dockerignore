@@ -1,0 +1,44 @@
+# Secretos y entorno (nunca versionar .env; env.example sí se puede copiar)
+.env
+.env.*
+!env.example
+!.env.example
+
+# Entornos virtuales
+.venv/
+venv/
+env/
+ENV/
+
+# Python / bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# Git
+.git
+.git/
+
+# Logs y temporales
+*.log
+*.tmp
+*.bak
+
+# Editores y SO
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Herramientas de agentes (locales)
+.atl/
+.claude/

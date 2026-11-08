@@ -1,0 +1,20 @@
+# Caso D-02 — Healthcheck `healthy`
+
+## Qué verifica
+El contenedor reporta estado `healthy` tras el HEALTHCHECK sobre `127.0.0.1:8000/health/ready`.
+
+## Comando / acción
+```
+docker ps
+```
+
+## Fecha / hora
+PENDIENTE (registrar al ejecutar en el VPS).
+
+## Salida real del VPS
+```
+# <-- PEGAR AQUÍ LA SALIDA REAL DE `docker ps` (estado = healthy)
+```
+
+## Resultado esperado
+El contenedor `libreria` aparece con estado `healthy`.

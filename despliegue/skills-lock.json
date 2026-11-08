@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "skills": {
+    "database-patterns": {
+      "source": "yonatangross/orchestkit",
+      "sourceType": "github",
+      "skillPath": "plugins/ork/skills/database-patterns/SKILL.md",
+      "computedHash": "c4b518ea9b0302e3423c470d8c562c1a62eb93c9b9b54f10e6e00a348729cfaa"
+    },
+    "fastapi": {
+      "source": "fastapi/fastapi",
+      "sourceType": "github",
+      "skillPath": "fastapi/.agents/skills/fastapi/SKILL.md",
+      "computedHash": "2f0ff30756b435168276e1a7eb78c07856118575ea174535de7ed86dc88c9be4"
+    },
+    "fastapi-templates": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "skillPath": "plugins/api-scaffolding/skills/fastapi-templates/SKILL.md",
+      "computedHash": "708046a283cd90c03bb4e160857eedcf9179244d4f0a36d3de8f266ffa472acc"
+    },
+    "postgresql-table-design": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "skillPath": "plugins/database-design/skills/postgresql-table-design/SKILL.md",
+      "computedHash": "c87d5cac33fbddc757fbb4b38a0098cff7dcf79201d40ddff2af76ec2724c5a1"
+    },
+    "python-backend": {
+      "source": "yonatangross/orchestkit",
+      "sourceType": "github",
+      "skillPath": "plugins/ork/skills/python-backend/SKILL.md",
+      "computedHash": "df5cceaa9be1a2a0925213a3d1f03a71a2be9d67223d1c71b699992d9a01069c"
+    },
+    "sqlmodel": {
+      "source": "fastapi/sqlmodel",
+      "sourceType": "github",
+      "skillPath": "sqlmodel/.agents/skills/sqlmodel/SKILL.md",
+      "computedHash": "43c500e763a5557e224ae01bf3d776aa158cee2d71cdf245b945ef5206294e18"
+    }
+  }
+}

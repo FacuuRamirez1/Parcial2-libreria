@@ -1,0 +1,21 @@
+# Caso D-01 — Imagen construida en `despliegue/`
+
+## Qué verifica
+La imagen `libreria` se construye con `docker build -t libreria .` dentro de `despliegue/` (base `python:3.12-alpine` < 100 MB; capa de dependencias antes del código).
+
+## Comando / acción
+```
+docker build -t libreria .
+```
+Ejecutado desde `despliegue/` del VPS.
+
+## Fecha / hora
+PENDIENTE (registrar al ejecutar en el VPS).
+
+## Salida real del VPS
+```
+# <-- PEGAR AQUÍ LA SALIDA REAL DE `docker build` (y `docker images` confirmando la imagen)
+```
+
+## Resultado esperado
+La imagen se construye sin errores y aparece en `docker images`.

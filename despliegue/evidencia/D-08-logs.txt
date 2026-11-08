@@ -1,0 +1,23 @@
+# Caso D-08 — Aviso de comprobante en logs
+
+## Qué verifica
+`docker logs libreria` muestra el aviso de comprobante tras la línea de respuesta de `POST /ventas/`.
+
+## Comando / acción
+```
+# 1. Crear una venta (ver caso D-03):
+curl -i -X POST http://127.0.0.1:<puerto>/ventas/ -H "Content-Type: application/json" -d '{"cliente_id":1,"renglones":[{"libro_id":1,"cantidad":1}]}'
+# 2. Consultar los logs:
+docker logs libreria
+```
+
+## Fecha / hora
+PENDIENTE (registrar al ejecutar en el VPS).
+
+## Salida real del VPS
+```
+# <-- PEGAR AQUÍ LA SALIDA REAL DE `docker logs libreria` (aviso tras la respuesta 201)
+```
+
+## Resultado esperado
+El log muestra el aviso de comprobante (ej. `Aviso de comprobante enviado: venta=<id> total=<total>`) después de la respuesta 201.

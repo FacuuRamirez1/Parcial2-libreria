@@ -1,0 +1,23 @@
+# Caso D-03 — Datos cargados + API responde
+
+## Qué verifica
+Datos cargados con `docker exec libreria python scripts/seed.py`; desde afuera: `GET /health/ready` 200, `GET /libros/` 200, `POST /ventas/` 201.
+
+## Comando / acción
+```
+docker exec libreria python scripts/seed.py
+curl http://127.0.0.1:<puerto>/health/ready
+curl http://127.0.0.1:<puerto>/libros/
+curl -i -X POST http://127.0.0.1:<puerto>/ventas/ -H "Content-Type: application/json" -d '{"cliente_id":1,"renglones":[{"libro_id":1,"cantidad":1}]}'
+```
+
+## Fecha / hora
+PENDIENTE (registrar al ejecutar en el VPS).
+
+## Salida real del VPS
+```
+# <-- PEGAR AQUÍ LA SALIDA REAL DE CADA COMANDO (códigos 200 / 201)
+```
+
+## Resultado esperado
+`GET /health/ready` → 200; `GET /libros/` → 200 con ítems; `POST /ventas/` → 201.
