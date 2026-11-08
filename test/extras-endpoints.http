@@ -3,6 +3,15 @@
 # Endpoints de referencia que no pertenecen a un caso C-NN. Requiere `python scripts/seed.py`.
 # Los listados ahora devuelven PaginatedResponse {items,total,page,size,pages}.
 
+### login de administrador (C-12)
+# Requiere `test/C-12-preparacion.sql` (admin@example.com; provisorio hasta el seed.py de C-14).
+# Deja la cookie en el jar de REST Client para los pedidos siguientes: desde C-12 las escrituras exigen sesion.
+# Esperado: HTTP/1.1 200 OK. Set-Cookie: access_token=...; HttpOnly
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "admin@example.com", "password": "clave-admin-1" }
+
 ### Libros de una editorial
 # Esperado: HTTP/1.1 200 OK con los libros 1 y 2 (editorial 1). 404 si la editorial no existe.
 # Cuerpo: {"items": [...], "total": 2, "page": 1, "size": 20, "pages": 1}

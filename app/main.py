@@ -5,21 +5,23 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import APIRouter, Depends, FastAPI
 
 from app.core.config import Settings
 from app.core.database import crear_fabrica_sesiones, crear_motor
+from app.core.dependencies import exigir_password_al_dia
 from app.core.errors import init_error_handlers
 from app.core.security import calcular_hash_ficticio
 import app.models  # noqa: F401  (registra todos los mappers antes de la primera consulta)
-from app.modules.autores.router import router as autores_router
-from app.modules.clientes.router import router as clientes_router
-from app.modules.editoriales.router import router as editoriales_router
-from app.modules.generos.router import router as generos_router
+from app.modules.autores import router as autores
+from app.modules.clientes import router as clientes
+from app.modules.editoriales import router as editoriales
+from app.modules.generos import router as generos
 from app.modules.health.router import router as health_router
-from app.modules.libros.router import router as libros_router
-from app.modules.usuarios.router import router as usuarios_router
-from app.modules.ventas.router import router as ventas_router
+from app.modules.libros import router as libros
+from app.modules.usuarios.router import eventos_router, personal_router
+from app.modules.usuarios.router import router as auth_router
+from app.modules.ventas import router as ventas
 
 
 def configurar_logging() -> None:
@@ -61,11 +63,24 @@ configurar_logging()
 app = FastAPI(lifespan=lifespan)
 init_error_handlers(app)
 
-app.include_router(health_router)
-app.include_router(editoriales_router)
-app.include_router(generos_router)
-app.include_router(autores_router)
-app.include_router(libros_router)
-app.include_router(clientes_router)
-app.include_router(ventas_router)
-app.include_router(usuarios_router)
+# Dos grupos de rutas, no uno: FastAPI SUMA las dependencias (app + router padre + router hijo +
+# ruta) y no tiene forma de RESTARLAS. Si `exigir_password_al_dia` (RN-06) colgara de la app o de
+# un router común, `/auth/cambiar-password` (la única salida del bloqueo) también quedaría
+# bloqueada. Por eso el control se monta UNA sola vez, sobre el grupo protegido; el abierto lleva
+# health, /auth y las lecturas públicas del catálogo. El rol de cada ruta (`requiere_rol`) se
+# declara en el router de su módulo, no aquí (no todas las rutas protegidas piden el mismo rol).
+abierto = APIRouter()
+protegido = APIRouter(dependencies=[Depends(exigir_password_al_dia)])
+
+abierto.include_router(health_router)
+abierto.include_router(auth_router)
+for modulo in (editoriales, generos, autores, libros):
+    abierto.include_router(modulo.router_abierto)
+    protegido.include_router(modulo.router_protegido)
+protegido.include_router(clientes.router_protegido)
+protegido.include_router(ventas.router_protegido)
+protegido.include_router(personal_router)
+protegido.include_router(eventos_router)
+
+app.include_router(abierto)
+app.include_router(protegido)

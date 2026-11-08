@@ -1,0 +1,744 @@
+@base = http://127.0.0.1:8000
+
+# C-12: autorización por roles y grupos de rutas (abierto / protegido).
+# Requisitos previos, en este orden:
+#   1. alembic upgrade head            (cabeza 0004)
+#   2. python scripts/seed.py
+#   3. psql -f test/C-12-preparacion.sql   (admin@, admin2@, vendedor@, nuevo@ example.com; provisorio hasta C-14)
+#   4. uvicorn app.main:app
+# Contrasenas de mentira (ver C-12-preparacion.sql):
+#   admin@ clave-admin-1 | admin2@ clave-admin-2 | vendedor@ clave-vendedor-1 | nuevo@ clave-nuevo-1
+# Cada pedido va con `# @no-cookie-jar` y la cookie se pasa a mano: varias sesiones a la vez.
+# Los correos de registro llevan {{$timestamp}} para no depender de corridas anteriores.
+# Para repetir una corrida completa: restablecer la base (alembic downgrade base, upgrade head, `python scripts/seed.py`; el alta de tomas@ lo deja con usuario) y despues el .sql
+# (nuevo@ cambia su contrasena en la seccion C-09; las revocaciones de la seccion final quitan roles a vendedor@ y admin2@).
+
+# ===================== SESIONES =====================
+
+### C-12 login: administrador
+# Esperado: HTTP/1.1 200 OK. Set-Cookie: access_token=...; HttpOnly; Path=/; SameSite=lax
+# @name loginAdmin
+# @no-cookie-jar
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "admin@example.com", "password": "clave-admin-1" }
+
+### C-12 login: segundo administrador
+# Esperado: HTTP/1.1 200 OK.
+# @name loginAdmin2
+# @no-cookie-jar
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "admin2@example.com", "password": "clave-admin-2" }
+
+### C-12 login: vendedor
+# Esperado: HTTP/1.1 200 OK.
+# @name loginVendedor
+# @no-cookie-jar
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "vendedor@example.com", "password": "clave-vendedor-1" }
+
+### C-12 login: vendedor con cambio de contrasena pendiente
+# Esperado: HTTP/1.1 200 OK (el login funciona aunque deba cambiar la contrasena).
+# @name loginNuevo
+# @no-cookie-jar
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "nuevo@example.com", "password": "clave-nuevo-1" }
+
+### C-12 registro de un cliente (rol CLIENTE)
+# Esperado: HTTP/1.1 201 Created.
+# @name registroCliente
+# @no-cookie-jar
+POST {{base}}/auth/registro
+Content-Type: application/json
+
+{ "email": "cli{{$timestamp}}@example.com", "nombre": "Cliente de C-12", "password": "clave-segura-1" }
+
+### C-12 login: cliente
+# Esperado: HTTP/1.1 200 OK.
+# @name loginCliente
+# @no-cookie-jar
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "{{registroCliente.response.body.$.email}}", "password": "clave-segura-1" }
+
+# ===================== 401 vs 403 (caso C-06, parte de autorización) =====================
+
+### C-12 401: crear editorial sin cookie
+# Esperado: HTTP/1.1 401 Unauthorized. {"detail": "No hay una sesión válida"}  (no 201 ni 403)
+# @no-cookie-jar
+POST {{base}}/editoriales/
+Content-Type: application/json
+
+{ "nombre": "Sin Cookie {{$timestamp}}", "pais": "Argentina" }
+
+### C-12 401: crear editorial con token alterado
+# Esperado: HTTP/1.1 401 Unauthorized. {"detail": "No hay una sesión válida"}
+# Cookie: el token de loginAdmin con el ultimo caracter de la firma cambiado (a mano o con el runner).
+# @no-cookie-jar
+POST {{base}}/editoriales/
+Content-Type: application/json
+Cookie: access_token=<token de loginAdmin con el ultimo caracter cambiado>
+
+{ "nombre": "Token Alterado {{$timestamp}}", "pais": "Argentina" }
+
+### C-12 403: crear libro como vendedor
+# Esperado: HTTP/1.1 403 Forbidden. {"detail": "No tenés permiso para esta operación"}
+# psql: SELECT count(*) FROM libro WHERE isbn = '978-950-00-1201-0';  -> 0 (no se creó ningún libro)
+# @no-cookie-jar
+POST {{base}}/libros/
+Content-Type: application/json
+Cookie: {{loginVendedor.response.headers.Set-Cookie}}
+
+{ "isbn": "978-950-00-1201-0", "titulo": "Libro del Vendedor", "precio": "100.00", "stock": 1, "editorial_id": 1 }
+
+### C-12 403: crear venta como cliente
+# Esperado: HTTP/1.1 403 Forbidden. {"detail": "No tenés permiso para esta operación"}
+# @no-cookie-jar
+POST {{base}}/ventas/
+Content-Type: application/json
+Cookie: {{loginCliente.response.headers.Set-Cookie}}
+
+{ "cliente_id": 1, "renglones": [ { "libro_id": 1, "cantidad": 1 } ] }
+
+### C-12 201: crear editorial como administrador
+# Esperado: HTTP/1.1 201 Created.
+# @no-cookie-jar
+POST {{base}}/editoriales/
+Content-Type: application/json
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+{ "nombre": "Editorial C-12 {{$timestamp}}", "pais": "Argentina" }
+
+### C-12 401: GET /clientes/abc sin cookie (la sesion se resuelve antes que la validacion)
+# Esperado: HTTP/1.1 401 Unauthorized. {"detail": "No hay una sesión válida"}  (no 422)
+# @no-cookie-jar
+GET {{base}}/clientes/abc
+
+### C-12 422: GET /clientes/abc como vendedor
+# Esperado: HTTP/1.1 422 Unprocessable Entity (autorizado: recién ahí valida el parámetro).
+# @no-cookie-jar
+GET {{base}}/clientes/abc
+Cookie: {{loginVendedor.response.headers.Set-Cookie}}
+
+# ===================== CAMBIO OBLIGATORIO DE CONTRASENA (caso C-09) =====================
+# nuevo@example.com tiene debe_cambiar_password = true. Solo puede usar /auth/*, /health/* y rutas abiertas.
+
+### C-12 cambio pendiente: POST /ventas/ bloqueado
+# Esperado: HTTP/1.1 403 Forbidden. {"detail": "Tenés que cambiar la contraseña antes de seguir"}
+# @no-cookie-jar
+POST {{base}}/ventas/
+Content-Type: application/json
+Cookie: {{loginNuevo.response.headers.Set-Cookie}}
+
+{ "cliente_id": 1, "renglones": [ { "libro_id": 1, "cantidad": 1 } ] }
+
+### C-12 cambio pendiente: GET /auth/yo sigue funcionando
+# Esperado: HTTP/1.1 200 OK con "debe_cambiar_password": true y "roles_vigentes": ["VENDEDOR"].
+# @no-cookie-jar
+GET {{base}}/auth/yo
+Cookie: {{loginNuevo.response.headers.Set-Cookie}}
+
+### C-12 cambio pendiente: GET /libros/ (ruta abierta) sigue funcionando
+# Esperado: HTTP/1.1 200 OK.
+# @no-cookie-jar
+GET {{base}}/libros/
+Cookie: {{loginNuevo.response.headers.Set-Cookie}}
+
+### C-12 cambio pendiente: POST /auth/cambiar-password
+# Esperado: HTTP/1.1 200 OK.
+# psql: SELECT debe_cambiar_password FROM usuario WHERE email = 'nuevo@example.com';  -> f
+# @no-cookie-jar
+POST {{base}}/auth/cambiar-password
+Content-Type: application/json
+Cookie: {{loginNuevo.response.headers.Set-Cookie}}
+
+{ "password_actual": "clave-nuevo-1", "password_nueva": "clave-nuevo-2" }
+
+### C-12 cambio hecho: el mismo POST /ventas/ con la MISMA cookie
+# Esperado: HTTP/1.1 201 Created (el control lee la base en cada petición; la cookie no cambia).
+# @no-cookie-jar
+POST {{base}}/ventas/
+Content-Type: application/json
+Cookie: {{loginNuevo.response.headers.Set-Cookie}}
+
+{ "cliente_id": 1, "renglones": [ { "libro_id": 1, "cantidad": 1 } ] }
+
+# ===================== MATRIZ DE PERMISOS (spec matriz-permisos) =====================
+
+### C-12 matriz: GET /editoriales/1/libros sin cookie (abierta, S-01)
+# Esperado: HTTP/1.1 200 OK.
+# @no-cookie-jar
+GET {{base}}/editoriales/1/libros
+
+### C-12 matriz: GET /autores/1 sin cookie (abierta, S-03)
+# Esperado: HTTP/1.1 200 OK.
+# @no-cookie-jar
+GET {{base}}/autores/1
+
+### C-12 matriz: GET /ventas/1 sin cookie
+# Esperado: HTTP/1.1 401 Unauthorized. {"detail": "No hay una sesión válida"}
+# @no-cookie-jar
+GET {{base}}/ventas/1
+
+### C-12 matriz: GET /ventas/1 como cliente
+# Esperado: HTTP/1.1 403 Forbidden. {"detail": "No tenés permiso para esta operación"}
+# @no-cookie-jar
+GET {{base}}/ventas/1
+Cookie: {{loginCliente.response.headers.Set-Cookie}}
+
+### C-12 matriz: GET /ventas/1 como vendedor (provisorio, S-04; C-13 lo reemplaza por la decisión de dueño)
+# Esperado: HTTP/1.1 200 OK.
+# @no-cookie-jar
+GET {{base}}/ventas/1
+Cookie: {{loginVendedor.response.headers.Set-Cookie}}
+
+### C-12 matriz: listado de ventas sin cookie
+# Esperado: HTTP/1.1 401 Unauthorized. {"detail": "No hay una sesión válida"}
+# @no-cookie-jar
+GET {{base}}/ventas/?page=1&size=20
+
+### C-12 matriz: listado de ventas como vendedor (solo ADMIN, S-02)
+# Esperado: HTTP/1.1 403 Forbidden. {"detail": "No tenés permiso para esta operación"}
+# @no-cookie-jar
+GET {{base}}/ventas/?page=1&size=20
+Cookie: {{loginVendedor.response.headers.Set-Cookie}}
+
+### C-12 matriz: GET /clientes/1 como cliente
+# Esperado: HTTP/1.1 403 Forbidden. {"detail": "No tenés permiso para esta operación"}
+# @no-cookie-jar
+GET {{base}}/clientes/1
+Cookie: {{loginCliente.response.headers.Set-Cookie}}
+
+### C-12 matriz: listado de ventas como administrador
+# Esperado: HTTP/1.1 200 OK.
+# @no-cookie-jar
+GET {{base}}/ventas/?page=1&size=20
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+### C-12 matriz: PATCH /autores/1 como administrador
+# Esperado: HTTP/1.1 200 OK.
+# @no-cookie-jar
+PATCH {{base}}/autores/1
+Content-Type: application/json
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+{ "nombre": "Autor uno C-12" }
+
+### C-12 matriz: DELETE /usuarios/1 no existe (no hay borrado de usuarios)
+# Esperado: HTTP/1.1 404 Not Found (o 405 si la ruta existe con otro método).
+# @no-cookie-jar
+DELETE {{base}}/usuarios/1
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+# ===================== UNA CONEXION POR PETICION (spec autorizacion-roles) =====================
+# Evidencia (SQL_ECHO=true, POST /editoriales/ como admin), registrada en la tarea 3.7:
+#   BEGIN (implicit)
+#   SELECT ... FROM usuario WHERE usuario.id = $1          (get_usuario_actual)
+#   SELECT asignacion_rol.rol ... revocada_en IS NULL ...   (requiere_rol: roles vigentes)
+#   INSERT INTO editorial ... RETURNING editorial.id        (Unit of Work)
+#   COMMIT
+# Un solo BEGIN y un solo COMMIT: las dos dependencias y el Unit of Work comparten sesion y transaccion.
+
+# ===================== ALTA DE PERSONAL (POST /usuarios, spec alta-personal) =====================
+# Requiere la sesion de admin@ (loginAdmin). Contrasena provisoria de los altas validos: provisoria-1
+
+### C-12 alta: sin cookie
+# Esperado: HTTP/1.1 401 Unauthorized. {"detail": "No hay una sesión válida"}
+# @no-cookie-jar
+POST {{base}}/usuarios
+Content-Type: application/json
+
+{ "email": "sincookie{{$timestamp}}@example.com", "nombre": "Sin Cookie", "password": "provisoria-1", "rol": "VENDEDOR" }
+
+### C-12 alta: como vendedor
+# Esperado: HTTP/1.1 403 Forbidden. {"detail": "No tenés permiso para esta operación"}
+# psql: SELECT count(*) FROM usuario WHERE email LIKE 'comovendedor%';  -> 0
+# @no-cookie-jar
+POST {{base}}/usuarios
+Content-Type: application/json
+Cookie: {{loginVendedor.response.headers.Set-Cookie}}
+
+{ "email": "comovendedor{{$timestamp}}@example.com", "nombre": "Como Vendedor", "password": "provisoria-1", "rol": "VENDEDOR" }
+
+### C-12 alta: un VENDEDOR
+# Esperado: HTTP/1.1 201 Created con "debe_cambiar_password": true y "roles_vigentes": ["VENDEDOR"]; sin "password_hash".
+# psql (un solo evento por este alta, con actor = admin@example.com):
+#   SELECT actor, accion FROM evento_seguridad ORDER BY id DESC LIMIT 1;
+#     -> admin@example.com | Alta de personal <correo> con rol VENDEDOR
+#   SELECT a.rol, a.vence_en, a.revocada_en, a.otorgada_por = (SELECT id FROM usuario WHERE email='admin@example.com')
+#     FROM asignacion_rol a JOIN usuario u ON u.id = a.usuario_id WHERE u.email = '<correo>';
+#     -> VENDEDOR | (nulo) | (nulo) | t
+# @name altaVendedor
+# @no-cookie-jar
+POST {{base}}/usuarios
+Content-Type: application/json
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+{ "email": "Personal{{$timestamp}}@Example.com", "nombre": "Personal de C-12", "password": "provisoria-1", "rol": "VENDEDOR" }
+
+### C-12 alta: rol CLIENTE no es de personal
+# Esperado: HTTP/1.1 422 Unprocessable Entity (no se crea ninguna fila)
+# @no-cookie-jar
+POST {{base}}/usuarios
+Content-Type: application/json
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+{ "email": "cliente-rol{{$timestamp}}@example.com", "nombre": "Rol Cliente", "password": "provisoria-1", "rol": "CLIENTE" }
+
+### C-12 alta: campo de mas
+# Esperado: HTTP/1.1 422 Unprocessable Entity
+# @no-cookie-jar
+POST {{base}}/usuarios
+Content-Type: application/json
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+{ "email": "extra{{$timestamp}}@example.com", "nombre": "Campo Extra", "password": "provisoria-1", "rol": "VENDEDOR", "debe_cambiar_password": false }
+
+### C-12 alta: contrasena de 73 bytes
+# Esperado: HTTP/1.1 422 Unprocessable Entity (el cuerpo de la respuesta no repite la contrasena)
+# @no-cookie-jar
+POST {{base}}/usuarios
+Content-Type: application/json
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+{ "email": "larga{{$timestamp}}@example.com", "nombre": "Clave Larga", "password": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "rol": "VENDEDOR" }
+
+### C-12 alta: correo que ya tiene usuario
+# Esperado: HTTP/1.1 409 Conflict. {"detail": "El correo ya está registrado"}
+# psql: sin asignacion ni evento nuevos para este rechazo (SELECT count(*) FROM evento_seguridad antes y despues: igual).
+# @no-cookie-jar
+POST {{base}}/usuarios
+Content-Type: application/json
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+{ "email": "vendedor@example.com", "nombre": "Repetido", "password": "provisoria-1", "rol": "ADMIN" }
+
+### C-12 alta: correo de un cliente del mostrador sin usuario (tomas@example.com del seed)
+# Esperado: HTTP/1.1 201 Created.
+# psql: SELECT usuario_id FROM cliente WHERE email = 'tomas@example.com';  -> (nulo) (la ficha no cambia)
+# (requiere `python scripts/seed.py` previo: tras esta corrida tomas@ ya tiene usuario)
+# @no-cookie-jar
+POST {{base}}/usuarios
+Content-Type: application/json
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+{ "email": "tomas@example.com", "nombre": "Tomas Personal", "password": "provisoria-1", "rol": "ADMIN" }
+
+### C-12 alta: login del personal nuevo
+# Esperado: HTTP/1.1 200 OK con "debe_cambiar_password": true.
+# @name loginAltaVendedor
+# @no-cookie-jar
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "{{altaVendedor.response.body.$.email}}", "password": "provisoria-1" }
+
+### C-12 alta: el personal nuevo no puede vender hasta cambiar la contrasena
+# Esperado: HTTP/1.1 403 Forbidden. {"detail": "Tenés que cambiar la contraseña antes de seguir"}
+# @no-cookie-jar
+POST {{base}}/ventas/
+Content-Type: application/json
+Cookie: {{loginAltaVendedor.response.headers.Set-Cookie}}
+
+{ "cliente_id": 1, "renglones": [ { "libro_id": 1, "cantidad": 1 } ] }
+
+###
+# ===================== ATOMICIDAD Y CONEXION DEL ALTA (tarea 4.4, evidencia ya corrida) =====================
+# (a) Atomicidad. En una sesion de psql aparte:
+#       ALTER TABLE evento_seguridad ADD CONSTRAINT tmp_falla CHECK (false) NOT VALID;
+#     POST /usuarios (alta valida) -> 409 {"detail": "Conflicto de integridad: registro duplicado o referencia inválida"}
+#     (manejador global; SQLSTATE 23514 no reconocido, se relanza) y el log muestra ROLLBACK.
+#       SELECT count(*) FROM usuario WHERE email = '<correo del alta>';                  -> 0
+#       SELECT count(*) FROM asignacion_rol a JOIN usuario u ON u.id = a.usuario_id
+#         WHERE u.email = '<correo del alta>';                                           -> 0
+#       SELECT count(*) FROM evento_seguridad WHERE accion LIKE '%<correo del alta>%';   -> 0
+#     Luego:  ALTER TABLE evento_seguridad DROP CONSTRAINT tmp_falla;   (alembic check: sin diferencias)
+# (b) Conexion (SQL_ECHO=true), POST /usuarios valido:
+#       BEGIN (implicit)  SELECT usuario ...  SELECT asignacion_rol.rol ...   (get_usuario_actual y requiere_rol)
+#       COMMIT                                      <- bloque vacio: la conexion vuelve al pool
+#       ... ~0,6 s sin transaccion (bcrypt, cost 12) ...
+#       BEGIN (implicit)  INSERT usuario  INSERT asignacion_rol  INSERT evento_seguridad
+#       COMMIT                                      <- las tres inserciones en una sola transaccion
+
+###
+# ===================== ASIGNACION DE ROLES (GET/POST /usuarios/{id}/roles, spec administracion-roles) =====================
+# Usa el personal creado en el alta (altaVendedor) para no tocar a vendedor@. `# @psql-antes:` es un paso
+# manual de psql que va ANTES del pedido (REST Client lo ignora: es un comentario).
+
+### C-12 asignacion: quien es el vendedor
+# Esperado: HTTP/1.1 200 OK.
+# @name yoVendedor
+# @no-cookie-jar
+GET {{base}}/auth/yo
+Cookie: {{loginVendedor.response.headers.Set-Cookie}}
+
+### C-12 asignacion: historial del vendedor
+# Esperado: HTTP/1.1 200 OK. Lista con una asignacion de VENDEDOR: "vigente": true, "revocada_en": null.
+# @no-cookie-jar
+GET {{base}}/usuarios/{{yoVendedor.response.body.$.id}}/roles
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+### C-12 asignacion: historial de un usuario inexistente
+# Esperado: HTTP/1.1 404 Not Found. {"detail": "Usuario no encontrado"}
+# @no-cookie-jar
+GET {{base}}/usuarios/999999/roles
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+### C-12 asignacion: ADMIN con vencimiento futuro con zona
+# Esperado: HTTP/1.1 201 Created. "rol": "ADMIN", "vigente": true, "vence_en" 2099-12-31T23:59:59-03:00 (como UTC), "otorgada_por" = id de admin@.
+# psql: SELECT rol, vence_en, otorgada_por, revocada_en FROM asignacion_rol WHERE usuario_id = <id del alta> ORDER BY id;  -> VENDEDOR (otorgada por admin@) y ADMIN con vence_en
+# psql: SELECT accion FROM evento_seguridad ORDER BY id DESC LIMIT 1;  -> Asignación de rol ADMIN al usuario <id> hasta 2099-...
+# @no-cookie-jar
+POST {{base}}/usuarios/{{altaVendedor.response.body.$.id}}/roles
+Content-Type: application/json
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+{ "rol": "ADMIN", "vence_en": "2099-12-31T23:59:59-03:00" }
+
+### C-12 asignacion: vence_en sin zona horaria
+# Esperado: HTTP/1.1 422 Unprocessable Entity.
+# @no-cookie-jar
+POST {{base}}/usuarios/{{altaVendedor.response.body.$.id}}/roles
+Content-Type: application/json
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+{ "rol": "CLIENTE", "vence_en": "2099-01-01T10:00:00" }
+
+### C-12 asignacion: vence_en en el pasado
+# Esperado: HTTP/1.1 422 Unprocessable Entity.
+# @no-cookie-jar
+POST {{base}}/usuarios/{{altaVendedor.response.body.$.id}}/roles
+Content-Type: application/json
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+{ "rol": "CLIENTE", "vence_en": "2020-01-01T10:00:00-03:00" }
+
+### C-12 asignacion: rol desconocido
+# Esperado: HTTP/1.1 422 Unprocessable Entity.
+# @no-cookie-jar
+POST {{base}}/usuarios/{{altaVendedor.response.body.$.id}}/roles
+Content-Type: application/json
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+{ "rol": "GERENTE" }
+
+### C-12 asignacion: campo de mas
+# Esperado: HTTP/1.1 422 Unprocessable Entity.
+# @no-cookie-jar
+POST {{base}}/usuarios/{{altaVendedor.response.body.$.id}}/roles
+Content-Type: application/json
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+{ "rol": "CLIENTE", "otorgada_por": 1 }
+
+### C-12 asignacion: rol que ya tiene vigente
+# Esperado: HTTP/1.1 409 Conflict. {"detail": "El usuario ya tiene ese rol vigente"}
+# psql: SELECT count(*) FROM asignacion_rol a JOIN usuario u ON u.id = a.usuario_id
+#       WHERE u.email = 'vendedor@example.com' AND a.rol = 'VENDEDOR' AND a.revocada_en IS NULL;  -> 1
+# @no-cookie-jar
+POST {{base}}/usuarios/{{yoVendedor.response.body.$.id}}/roles
+Content-Type: application/json
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+{ "rol": "VENDEDOR" }
+
+### C-12 asignacion: usuario inexistente
+# Esperado: HTTP/1.1 404 Not Found. {"detail": "Usuario no encontrado"}
+# (la clave foranea lo detecta, sin consultar el usuario antes; no queda evento nuevo)
+# @no-cookie-jar
+POST {{base}}/usuarios/999999/roles
+Content-Type: application/json
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+{ "rol": "VENDEDOR" }
+
+### C-12 asignacion: reasignar un rol vencido
+# @psql-antes: UPDATE asignacion_rol SET vence_en = now() - interval '1 day' WHERE usuario_id = {{altaVendedor.response.body.$.id}} AND rol = 'ADMIN' AND revocada_en IS NULL
+# Esperado: HTTP/1.1 201 Created. "rol": "ADMIN", "vence_en": null, "vigente": true.
+# psql: SELECT rol, vence_en, revocada_en FROM asignacion_rol WHERE usuario_id = <id del alta> AND rol = 'ADMIN' ORDER BY id;
+#       -> dos filas: la vieja con revocada_en no nulo (cerrada, no borrada) y la nueva abierta sin vencimiento
+# psql: SELECT count(*) FROM evento_seguridad WHERE accion LIKE 'Asignación de rol ADMIN al usuario <id del alta>%';  -> 2 (una por asignacion exitosa)
+# @no-cookie-jar
+POST {{base}}/usuarios/{{altaVendedor.response.body.$.id}}/roles
+Content-Type: application/json
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+{ "rol": "ADMIN" }
+
+### C-12 asignacion: historial tras la reasignacion
+# Esperado: HTTP/1.1 200 OK. Tres asignaciones por "desde": VENDEDOR vigente, ADMIN revocada ("vigente": false), ADMIN abierta ("vigente": true).
+# @no-cookie-jar
+GET {{base}}/usuarios/{{altaVendedor.response.body.$.id}}/roles
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+### C-12 asignacion: como vendedor
+# Esperado: HTTP/1.1 403 Forbidden. {"detail": "No tenés permiso para esta operación"}
+# @no-cookie-jar
+POST {{base}}/usuarios/{{yoVendedor.response.body.$.id}}/roles
+Content-Type: application/json
+Cookie: {{loginVendedor.response.headers.Set-Cookie}}
+
+{ "rol": "ADMIN" }
+
+### C-12 asignacion: historial como vendedor
+# Esperado: HTTP/1.1 403 Forbidden. {"detail": "No tenés permiso para esta operación"}
+# @no-cookie-jar
+GET {{base}}/usuarios/{{yoVendedor.response.body.$.id}}/roles
+Cookie: {{loginVendedor.response.headers.Set-Cookie}}
+
+###
+# ===================== ROL ASIGNADO DESPUES DEL LOGIN (tarea 5.4, spec autorizacion-roles) =====================
+# Los roles se leen de la base en cada peticion: la cookie no cambia, el permiso si.
+
+### C-12 rol nuevo: alta de otro personal (VENDEDOR)
+# Esperado: HTTP/1.1 201 Created con "roles_vigentes": ["VENDEDOR"].
+# @name altaOtro
+# @no-cookie-jar
+POST {{base}}/usuarios
+Content-Type: application/json
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+{ "email": "otro{{$timestamp}}@example.com", "nombre": "Otro Personal", "password": "provisoria-1", "rol": "VENDEDOR" }
+
+### C-12 rol nuevo: login del personal nuevo
+# Esperado: HTTP/1.1 200 OK con "debe_cambiar_password": true.
+# @name loginOtro
+# @no-cookie-jar
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "{{altaOtro.response.body.$.email}}", "password": "provisoria-1" }
+
+### C-12 rol nuevo: cambia la contrasena provisoria
+# Esperado: HTTP/1.1 200 OK.
+# @no-cookie-jar
+POST {{base}}/auth/cambiar-password
+Content-Type: application/json
+Cookie: {{loginOtro.response.headers.Set-Cookie}}
+
+{ "password_actual": "provisoria-1", "password_nueva": "definitiva-1" }
+
+### C-12 rol nuevo: sin ADMIN no puede crear una editorial
+# Esperado: HTTP/1.1 403 Forbidden. {"detail": "No tenés permiso para esta operación"}
+# @no-cookie-jar
+POST {{base}}/editoriales/
+Content-Type: application/json
+Cookie: {{loginOtro.response.headers.Set-Cookie}}
+
+{ "nombre": "Editorial Otro {{$timestamp}}", "pais": "Chile" }
+
+### C-12 rol nuevo: el administrador le asigna ADMIN
+# Esperado: HTTP/1.1 201 Created. "rol": "ADMIN", "vigente": true.
+# @no-cookie-jar
+POST {{base}}/usuarios/{{altaOtro.response.body.$.id}}/roles
+Content-Type: application/json
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+{ "rol": "ADMIN" }
+
+### C-12 rol nuevo: la MISMA cookie ya puede crear la editorial
+# Esperado: HTTP/1.1 201 Created (el token sigue diciendo solo VENDEDOR; decide la base).
+# @no-cookie-jar
+POST {{base}}/editoriales/
+Content-Type: application/json
+Cookie: {{loginOtro.response.headers.Set-Cookie}}
+
+{ "nombre": "Editorial Otro {{$timestamp}}", "pais": "Chile" }
+
+###
+# ===================== REVOCACION (DELETE /usuarios/{id}/roles/{rol}, caso C-07) =====================
+# Se revoca VENDEDOR a vendedor@ (loginVendedor sigue con su cookie): despues de esta seccion vendedor@ ya no
+# vende hasta volver a correr test/C-12-preparacion.sql.
+
+### C-12 revocacion: id del primer administrador
+# Esperado: HTTP/1.1 200 OK.
+# @name yoAdmin
+# @no-cookie-jar
+GET {{base}}/auth/yo
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+### C-12 revocacion: id del segundo administrador
+# Esperado: HTTP/1.1 200 OK.
+# @name yoAdmin2
+# @no-cookie-jar
+GET {{base}}/auth/yo
+Cookie: {{loginAdmin2.response.headers.Set-Cookie}}
+
+### C-12 revocacion: el vendedor crea una venta
+# Esperado: HTTP/1.1 201 Created.
+# @no-cookie-jar
+POST {{base}}/ventas/
+Content-Type: application/json
+Cookie: {{loginVendedor.response.headers.Set-Cookie}}
+
+{ "cliente_id": 1, "renglones": [ { "libro_id": 1, "cantidad": 1 } ] }
+
+### C-12 revocacion: el administrador revoca VENDEDOR al vendedor
+# Esperado: HTTP/1.1 200 OK. "rol": "VENDEDOR", "revocada_en" no nulo, "vigente": false.
+# psql: SELECT rol, revocada_en IS NOT NULL FROM asignacion_rol WHERE usuario_id = <id de vendedor@> AND rol = 'VENDEDOR';
+#       -> la fila SIGUE (no se borro), con revocada_en
+# psql: SELECT actor, accion FROM evento_seguridad ORDER BY id DESC LIMIT 1;
+#       -> admin@example.com | Revocación de rol VENDEDOR al usuario <id de vendedor@>
+# @no-cookie-jar
+DELETE {{base}}/usuarios/{{yoVendedor.response.body.$.id}}/roles/VENDEDOR
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+### C-12 revocacion: el vendedor repite la venta con la MISMA cookie
+# Esperado: HTTP/1.1 403 Forbidden. {"detail": "No tenés permiso para esta operación"}
+# @no-cookie-jar
+POST {{base}}/ventas/
+Content-Type: application/json
+Cookie: {{loginVendedor.response.headers.Set-Cookie}}
+
+{ "cliente_id": 1, "renglones": [ { "libro_id": 1, "cantidad": 1 } ] }
+
+### C-12 revocacion: /auth/yo del vendedor revocado
+# Esperado: HTTP/1.1 200 OK. "roles_vigentes": [] y "roles_token": ["VENDEDOR"] (los del token son informativos).
+# @no-cookie-jar
+GET {{base}}/auth/yo
+Cookie: {{loginVendedor.response.headers.Set-Cookie}}
+
+### C-12 revocacion: revocar un rol ya revocado
+# Esperado: HTTP/1.1 404 Not Found. {"detail": "El usuario no tiene ese rol asignado"}
+# @no-cookie-jar
+DELETE {{base}}/usuarios/{{yoVendedor.response.body.$.id}}/roles/VENDEDOR
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+### C-12 revocacion: como vendedor
+# Esperado: HTTP/1.1 403 Forbidden. {"detail": "No tenés permiso para esta operación"}
+# @no-cookie-jar
+DELETE {{base}}/usuarios/{{yoAdmin2.response.body.$.id}}/roles/ADMIN
+Cookie: {{loginVendedor.response.headers.Set-Cookie}}
+
+###
+# ===================== AUTOPROTECCION (caso C-08) =====================
+
+### C-12 autoproteccion: el administrador se revoca su propio ADMIN
+# Esperado: HTTP/1.1 409 Conflict. {"detail": "Un administrador no puede revocarse su propio rol ADMIN"}
+# psql: su asignacion ADMIN sigue abierta (revocada_en nulo) y no se agrego ningun evento.
+# @no-cookie-jar
+DELETE {{base}}/usuarios/{{yoAdmin.response.body.$.id}}/roles/ADMIN
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+### C-12 autoproteccion: revocar un ADMIN que el usuario no tiene
+# Esperado: HTTP/1.1 404 Not Found. {"detail": "El usuario no tiene ese rol asignado"}
+# @no-cookie-jar
+DELETE {{base}}/usuarios/{{yoVendedor.response.body.$.id}}/roles/ADMIN
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+### C-12 autoproteccion: usuario inexistente
+# Esperado: HTTP/1.1 404 Not Found. {"detail": "El usuario no tiene ese rol asignado"}
+# @no-cookie-jar
+DELETE {{base}}/usuarios/999999/roles/ADMIN
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+### C-12 autoproteccion: rol desconocido en la ruta
+# Esperado: HTTP/1.1 422 Unprocessable Entity.
+# @no-cookie-jar
+DELETE {{base}}/usuarios/{{yoVendedor.response.body.$.id}}/roles/GERENTE
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+### C-12 autoproteccion: admin2 recibe VENDEDOR
+# Esperado: HTTP/1.1 201 Created. "rol": "VENDEDOR".
+# @no-cookie-jar
+POST {{base}}/usuarios/{{yoAdmin2.response.body.$.id}}/roles
+Content-Type: application/json
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+{ "rol": "VENDEDOR" }
+
+### C-12 autoproteccion: un administrador se revoca su propio VENDEDOR
+# Esperado: HTTP/1.1 200 OK. "rol": "VENDEDOR", "revocada_en" no nulo (la regla solo protege el ADMIN).
+# @no-cookie-jar
+DELETE {{base}}/usuarios/{{yoAdmin2.response.body.$.id}}/roles/VENDEDOR
+Cookie: {{loginAdmin2.response.headers.Set-Cookie}}
+
+### C-12 autoproteccion: admin@ revoca ADMIN a admin2@
+# Esperado: HTTP/1.1 200 OK. "rol": "ADMIN", "revocada_en" no nulo.
+# psql: SELECT count(*) FROM evento_seguridad WHERE accion LIKE 'Revocación de rol%';  -> uno por revocacion exitosa
+#       (VENDEDOR de vendedor@, VENDEDOR de admin2@, ADMIN de admin2@); ninguno por los 409/404/422.
+# @no-cookie-jar
+DELETE {{base}}/usuarios/{{yoAdmin2.response.body.$.id}}/roles/ADMIN
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+### C-12 autoproteccion: admin2@ ya no es administrador (misma cookie)
+# Esperado: HTTP/1.1 403 Forbidden. {"detail": "No tenés permiso para esta operación"}
+# @no-cookie-jar
+POST {{base}}/usuarios/{{yoVendedor.response.body.$.id}}/roles
+Content-Type: application/json
+Cookie: {{loginAdmin2.response.headers.Set-Cookie}}
+
+{ "rol": "VENDEDOR" }
+
+###
+# ===================== ATOMICIDAD DE LA REVOCACION (tarea 6.2, evidencia ya corrida) =====================
+# Con `ALTER TABLE evento_seguridad ADD CONSTRAINT tmp_falla CHECK (false) NOT VALID;` (sesion de psql aparte):
+#   DELETE /usuarios/<id de nuevo@>/roles/VENDEDOR -> 409 {"detail": "Conflicto de integridad: registro duplicado o referencia inválida"}
+#   (manejador global; SQLSTATE 23514 no reconocido, se relanza) y la asignacion VENDEDOR de nuevo@ sigue abierta (revocada_en nulo).
+# Luego:  ALTER TABLE evento_seguridad DROP CONSTRAINT tmp_falla;
+
+###
+# ===================== ULTIMO ADMINISTRADOR (tarea 6.5, no alcanzable por HTTP; evidencia ya corrida) =====================
+# Script `python -c` con una sesion de la fabrica y un UsuariosUnitOfWork, tras dejar por psql un solo ADMIN activo vigente
+# (admin2@; a admin@ se le cerro su ADMIN) y llamar service.revocar_rol(actor=admin@, objetivo=admin2@, "ADMIN"):
+#   admins vigentes activos: admin2@example.com
+#   RESULTADO: 409 El sistema no puede quedarse sin administradores
+#   fila ADMIN de admin2@ sigue abierta: t
+#   eventos antes/despues: 0 0                      <- el rechazo no deja evento
+# Restablecer con alembic downgrade base / upgrade head / seed.py / test/C-12-preparacion.sql.
+
+###
+# ===================== HISTORIAL DE SEGURIDAD (GET /eventos, spec historial-seguridad) =====================
+# Va despues de la revocacion: el primer evento es la ultima operacion de personal (la revocacion de ADMIN a admin2@).
+
+### C-12 eventos: sin cookie
+# Esperado: HTTP/1.1 401 Unauthorized.
+# @no-cookie-jar
+GET {{base}}/eventos?page=1&size=5
+
+### C-12 eventos: como vendedor
+# Esperado: HTTP/1.1 403 Forbidden. {"detail": "No tenés permiso para esta operación"}
+# @no-cookie-jar
+GET {{base}}/eventos?page=1&size=5
+Cookie: {{loginVendedor.response.headers.Set-Cookie}}
+
+### C-12 eventos: como administrador, del mas reciente al mas antiguo
+# Esperado: HTTP/1.1 200 OK. {"items": [...], "total": N, "page": 1, "size": 5, "pages": ceil(N/5)}; cada item con id, cuando, actor, accion;
+#           el primer item es "Revocación de rol ADMIN al usuario <id de admin2@>" (actor admin@example.com).
+# psql: SELECT count(*) FROM evento_seguridad;  -> igual a "total"
+# @no-cookie-jar
+GET {{base}}/eventos?page=1&size=5
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+### C-12 eventos: tamano fuera de rango
+# Esperado: HTTP/1.1 422 Unprocessable Entity.
+# @no-cookie-jar
+GET {{base}}/eventos?size=500
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+### C-12 eventos: pagina cero
+# Esperado: HTTP/1.1 422 Unprocessable Entity.
+# @no-cookie-jar
+GET {{base}}/eventos?page=0
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+### C-12 eventos: pagina mas alla de la ultima
+# Esperado: HTTP/1.1 422 Unprocessable Entity.
+# @no-cookie-jar
+GET {{base}}/eventos?page=999&size=5
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}
+
+### C-12 eventos: un evento SISTEMA aparece con su actor de texto
+# @psql-antes: INSERT INTO evento_seguridad (actor, accion) VALUES ('SISTEMA', 'Carga de datos iniciales (prueba C-12)')
+# Esperado: HTTP/1.1 200 OK. El primer item es {"actor": "SISTEMA", "accion": "Carga de datos iniciales (prueba C-12)"}.
+# @no-cookie-jar
+GET {{base}}/eventos?page=1&size=1
+Cookie: {{loginAdmin.response.headers.Set-Cookie}}

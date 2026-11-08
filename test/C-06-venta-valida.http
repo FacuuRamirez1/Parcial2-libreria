@@ -3,6 +3,15 @@
 # C-06: venta válida con dos renglones. Requiere `python scripts/seed.py`
 # (cliente 2 = Tomás Ríos; libro 1 "Rayuela" = 25000.00 y libro 4 "Respiración artificial" = 27000.00).
 
+### login de administrador (C-12)
+# Requiere `test/C-12-preparacion.sql` (admin@example.com; provisorio hasta el seed.py de C-14).
+# Deja la cookie en el jar de REST Client para los pedidos siguientes: desde C-12 las escrituras exigen sesion.
+# Esperado: HTTP/1.1 200 OK. Set-Cookie: access_token=...; HttpOnly
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "admin@example.com", "password": "clave-admin-1" }
+
 ### C-06: venta con dos renglones
 # Esperado: HTTP/1.1 201 Created, con el cliente y los renglones creados, el precio copiado de
 # cada libro y el total calculado por el servidor (2 x 25000.00 + 1 x 27000.00 = 77000.00).

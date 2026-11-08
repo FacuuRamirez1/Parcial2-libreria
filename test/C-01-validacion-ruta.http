@@ -3,6 +3,15 @@
 # C-01: un parámetro de ruta que no es entero.
 # Antes: `alembic upgrade head` y `python scripts/seed.py` (el caso no necesita datos).
 
+### login de administrador (C-12)
+# Requiere `test/C-12-preparacion.sql` (admin@example.com; provisorio hasta el seed.py de C-14).
+# Deja la cookie en el jar de REST Client para los pedidos siguientes: desde C-12 las escrituras exigen sesion.
+# Esperado: HTTP/1.1 200 OK. Set-Cookie: access_token=...; HttpOnly
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "admin@example.com", "password": "clave-admin-1" }
+
 ### C-01: GET /libros/no-es-entero
 # Esperado: HTTP/1.1 422 Unprocessable Entity, sin ejecutar el handler (no se consulta la base).
 # Cuerpo: {"detail": [{"type": "int_parsing", "loc": ["path", "id"], ...}]}

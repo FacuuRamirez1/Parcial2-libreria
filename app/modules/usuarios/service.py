@@ -13,15 +13,21 @@ from sqlalchemy.exc import IntegrityError
 
 from app.core.config import Settings
 from app.core.dependencies import UsuarioActual
+from app.core.paginacion import PaginatedResponse, Paginacion, calcular_paginas, verificar_pagina
 from app.core.security import crear_token, hashear_password, verificar_password
 from app.modules.clientes.models import Cliente
 from app.modules.usuarios.models import AsignacionRol, EventoSeguridad, Usuario
 from app.modules.usuarios.repository import RegistroIntentosPropio
 from app.modules.usuarios.schemas import (
+    AsignacionRolIn,
+    AsignacionRolOut,
     CambioPasswordIn,
+    EventoOut,
     LoginIn,
     LoginOut,
     MensajeOut,
+    PersonalIn,
+    PersonalOut,
     RegistroIn,
     RegistroOut,
     YoOut,
@@ -29,17 +35,28 @@ from app.modules.usuarios.schemas import (
 from app.modules.usuarios.unit_of_work import UsuariosUnitOfWork
 
 UNIQUE_VIOLATION = "23505"
+FOREIGN_KEY_VIOLATION = "23503"
 MAX_FALLOS = 5
 VENTANA_SEGUNDOS = 60
 MSG_LOGIN_INVALIDO = "Correo o contraseña incorrectos"
 MSG_SIN_SESION = "No hay una sesión válida"
 MSG_PASSWORD_ACTUAL = "La contraseña actual no es correcta"
+MSG_USUARIO_NO_ENCONTRADO = "Usuario no encontrado"
+MSG_ROL_VIGENTE = "El usuario ya tiene ese rol vigente"
+MSG_ROL_NO_ASIGNADO = "El usuario no tiene ese rol asignado"
+MSG_AUTOREVOCACION_ADMIN = "Un administrador no puede revocarse su propio rol ADMIN"
+MSG_SIN_ADMINISTRADORES = "El sistema no puede quedarse sin administradores"
 MSG_DEMASIADOS_INTENTOS = "Demasiados intentos fallidos; probá de nuevo más tarde"
 
 
 def _es_unicidad(exc: IntegrityError) -> bool:
     codigo = getattr(exc.orig, "sqlstate", None) or getattr(exc.orig, "pgcode", None)
     return codigo == UNIQUE_VIOLATION
+
+
+def _es_fk(exc: IntegrityError) -> bool:
+    codigo = getattr(exc.orig, "sqlstate", None) or getattr(exc.orig, "pgcode", None)
+    return codigo == FOREIGN_KEY_VIOLATION
 
 
 async def registrar(
@@ -167,3 +184,164 @@ async def cambiar_password(
         await uow.usuarios.update(usuario)
         await uow.eventos.add(EventoSeguridad(actor=usuario.email, accion="Cambio de contraseña"))
     return MensajeOut(mensaje="Contraseña actualizada")
+
+
+async def alta_personal(
+    uow: UsuariosUnitOfWork,
+    actor: UsuarioActual,
+    datos: PersonalIn,
+    settings: Settings,
+    semaforo: asyncio.Semaphore,
+) -> PersonalOut:
+    """Alta de un miembro del personal por un administrador, en el orden de D-05.
+
+    1. Bloque vacío: cierra la transacción implícita que abrieron `get_usuario_actual` y
+       `requiere_rol` y devuelve la conexión al pool ANTES de bcrypt (sin esto quedaría tomada
+       ~300 ms sin usar la base). Con `expire_on_commit=False` el correo del actor sigue disponible.
+    2. Fuera de transacción: hash de la contraseña provisoria.
+    3. UN solo bloque: usuario (debe cambiar la contraseña) + asignación abierta + evento (RN-16).
+       Si cualquiera falla se revierten las tres. El correo repetido lo rechaza UNIQUE (23505 → 409),
+       sin pre-consulta; la ficha de `cliente` no se toca (el personal no es cliente).
+    """
+    async with uow:
+        pass
+    password_hash = await hashear_password(datos.password, settings.BCRYPT_COST, semaforo)
+    try:
+        async with uow:
+            usuario = Usuario(
+                email=datos.email,
+                nombre=datos.nombre,
+                password_hash=password_hash,
+                debe_cambiar_password=True,
+            )
+            await uow.usuarios.add(usuario)
+            await uow.asignaciones.add(
+                AsignacionRol(usuario_id=usuario.id, rol=datos.rol, otorgada_por=actor.usuario.id)
+            )
+            await uow.eventos.add(
+                EventoSeguridad(
+                    actor=actor.usuario.email,
+                    accion=f"Alta de personal {datos.email} con rol {datos.rol}",
+                )
+            )
+    except IntegrityError as exc:  # el UoW ya revirtió las tres escrituras
+        if _es_unicidad(exc):
+            raise HTTPException(status.HTTP_409_CONFLICT, "El correo ya está registrado") from exc
+        raise
+    return PersonalOut(
+        id=usuario.id,
+        email=usuario.email,
+        nombre=usuario.nombre,
+        debe_cambiar_password=True,
+        roles_vigentes=[datos.rol],
+    )
+
+
+async def listar_roles(uow: UsuariosUnitOfWork, usuario_id: int) -> list[AsignacionRolOut]:
+    """Historial completo de roles del usuario (S-09), 404 si no existe (D-08)."""
+    ahora = datetime.now(UTC)
+    async with uow:
+        if await uow.usuarios.get_by_id(usuario_id) is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, MSG_USUARIO_NO_ENCONTRADO)
+        asignaciones = await uow.asignaciones.listar_de_usuario(usuario_id)
+    return [AsignacionRolOut.desde_modelo(a, ahora) for a in asignaciones]
+
+
+async def asignar_rol(
+    uow: UsuariosUnitOfWork,
+    actor: UsuarioActual,
+    usuario_id: int,
+    datos: AsignacionRolIn,
+) -> AsignacionRolOut:
+    """Asigna un rol (opcionalmente con vencimiento) en UN solo bloque (D-06).
+
+    EXCEPCION declarada a la regla "no pre-consultar unicidad" (CLAUDE.md, RN-03/RN-05): se lee la
+    asignación abierta del rol porque hace falta distinguir "vigente -> 409" de "vencida -> cerrarla
+    y abrir otra". El índice único parcial ix_asignacion_rol_abierta sigue siendo el garante: si dos
+    asignaciones se cruzan, el 23505 también responde 409. El usuario NO se consulta antes: la clave
+    foránea lo rechaza (23503 -> 404).
+
+    Cerrar la vencida = escribir su `revocada_en` (S-08); la fila no se borra. El evento de seguridad
+    va en el mismo bloque: si algo falla se revierte todo.
+    """
+    ahora = datetime.now(UTC)
+    try:
+        async with uow:
+            abierta = await uow.asignaciones.get_abierta(usuario_id, datos.rol)
+            if abierta is not None:
+                if abierta.vence_en is None or abierta.vence_en > ahora:
+                    raise HTTPException(status.HTTP_409_CONFLICT, MSG_ROL_VIGENTE)
+                abierta.revocada_en = ahora
+                await uow.asignaciones.update(abierta)
+            nueva = AsignacionRol(
+                usuario_id=usuario_id,
+                rol=datos.rol,
+                vence_en=datos.vence_en,
+                otorgada_por=actor.usuario.id,
+            )
+            await uow.asignaciones.add(nueva)
+            accion = f"Asignación de rol {datos.rol} al usuario {usuario_id}"
+            if datos.vence_en is not None:
+                accion += f" hasta {datos.vence_en.astimezone(UTC).isoformat(timespec='seconds')}"
+            await uow.eventos.add(EventoSeguridad(actor=actor.usuario.email, accion=accion))
+    except IntegrityError as exc:  # el UoW ya revirtió todo el bloque
+        if _es_fk(exc):
+            raise HTTPException(status.HTTP_404_NOT_FOUND, MSG_USUARIO_NO_ENCONTRADO) from exc
+        if _es_unicidad(exc):
+            raise HTTPException(status.HTTP_409_CONFLICT, MSG_ROL_VIGENTE) from exc
+        raise
+    return AsignacionRolOut.desde_modelo(nueva, ahora)
+
+
+async def revocar_rol(
+    uow: UsuariosUnitOfWork,
+    actor: UsuarioActual,
+    usuario_id: int,
+    rol: str,
+) -> AsignacionRolOut:
+    """Revoca la asignación abierta de un rol escribiendo `revocada_en` (la fila NO se borra), D-07.
+
+    Orden, todo en UN bloque: (1) autoprotección: nadie se revoca su propio ADMIN (409, antes de leer
+    nada); (2) 404 si no hay asignación abierta (cubre al usuario inexistente); (3) si es un ADMIN
+    vigente, el sistema no puede quedarse sin administradores activos (409); (4) `revocada_en` +
+    evento de seguridad en el mismo bloque: si el evento falla se revierte la revocación.
+    Revocar una abierta ya vencida también la cierra (no cambia permisos y deja el historial prolijo).
+    El conteo del paso 3 no toma bloqueos: la carrera entre dos revocaciones simultáneas es del cap. 7.
+    """
+    if rol == "ADMIN" and usuario_id == actor.usuario.id:
+        raise HTTPException(status.HTTP_409_CONFLICT, MSG_AUTOREVOCACION_ADMIN)
+    ahora = datetime.now(UTC)
+    async with uow:
+        abierta = await uow.asignaciones.get_abierta(usuario_id, rol)
+        if abierta is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, MSG_ROL_NO_ASIGNADO)
+        vigente = abierta.vence_en is None or abierta.vence_en > ahora
+        if rol == "ADMIN" and vigente and await uow.asignaciones.contar_admins_vigentes(ahora) <= 1:
+            raise HTTPException(status.HTTP_409_CONFLICT, MSG_SIN_ADMINISTRADORES)
+        abierta.revocada_en = ahora
+        await uow.asignaciones.update(abierta)
+        await uow.eventos.add(
+            EventoSeguridad(
+                actor=actor.usuario.email,
+                accion=f"Revocación de rol {rol} al usuario {usuario_id}",
+            )
+        )
+    return AsignacionRolOut.desde_modelo(abierta, ahora)
+
+
+async def listar_eventos(uow: UsuariosUnitOfWork, pag: Paginacion) -> PaginatedResponse[EventoOut]:
+    """Historial de seguridad paginado, del más reciente al más antiguo (D-08).
+
+    Mismo patrón que los listados de C-09: `total` primero, 422 si la página no existe
+    (con cero eventos hay una sola página vacía)."""
+    async with uow:
+        total = await uow.eventos.count()
+        verificar_pagina(pag.page, pag.size, total)
+        eventos = await uow.eventos.listar_recientes(pag.offset, pag.limit)
+        return PaginatedResponse(
+            items=[EventoOut.model_validate(e) for e in eventos],
+            total=total,
+            page=pag.page,
+            size=pag.size,
+            pages=calcular_paginas(total, pag.size),
+        )

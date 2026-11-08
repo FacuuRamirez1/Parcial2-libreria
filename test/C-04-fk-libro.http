@@ -3,6 +3,15 @@
 # C-04: libro con una editorial o un autor inexistente. Requiere `python scripts/seed.py`.
 # El alta no consulta antes si el id existe: se escribe y la clave foránea responde 409.
 
+### login de administrador (C-12)
+# Requiere `test/C-12-preparacion.sql` (admin@example.com; provisorio hasta el seed.py de C-14).
+# Deja la cookie en el jar de REST Client para los pedidos siguientes: desde C-12 las escrituras exigen sesion.
+# Esperado: HTTP/1.1 200 OK. Set-Cookie: access_token=...; HttpOnly
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "admin@example.com", "password": "clave-admin-1" }
+
 ### C-04: editorial inexistente
 # Esperado: HTTP/1.1 409 Conflict, con mensaje propio.
 # Cuerpo: {"detail": "Conflicto de integridad: registro duplicado o referencia inválida"}

@@ -3,6 +3,7 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, status
 
 from app.core.database import SessionDep
+from app.core.dependencies import ADMIN, PERSONAL, requiere_rol
 from app.core.paginacion import PaginatedResponse, Paginacion, get_paginacion
 from app.modules.ventas.schemas import VentaCreate, VentaRead
 from app.modules.ventas.service import (
@@ -13,14 +14,19 @@ from app.modules.ventas.service import (
 )
 from app.modules.ventas.unit_of_work import VentasUnitOfWork
 
-router = APIRouter(prefix="/ventas", tags=["ventas"])
+router_protegido = APIRouter(prefix="/ventas", tags=["ventas"])
 
 
 async def get_ventas_uow(session: SessionDep) -> VentasUnitOfWork:
     return VentasUnitOfWork(session)
 
 
-@router.post("/", response_model=VentaRead, status_code=status.HTTP_201_CREATED)
+@router_protegido.post(
+    "/",
+    dependencies=[Depends(requiere_rol(*PERSONAL))],
+    response_model=VentaRead,
+    status_code=status.HTTP_201_CREATED,
+)
 async def crear_venta_endpoint(
     datos: VentaCreate,
     uow: VentasUnitOfWork = Depends(get_ventas_uow),
@@ -32,7 +38,12 @@ async def crear_venta_endpoint(
     return venta
 
 
-@router.get("/", response_model=PaginatedResponse[VentaRead])
+# Listado completo de ventas: solo ADMIN (S-02).
+@router_protegido.get(
+    "/",
+    dependencies=[Depends(requiere_rol(ADMIN))],
+    response_model=PaginatedResponse[VentaRead],
+)
 async def listar_ventas_endpoint(
     uow: VentasUnitOfWork = Depends(get_ventas_uow),
     pag: Paginacion = Depends(get_paginacion),
@@ -40,7 +51,8 @@ async def listar_ventas_endpoint(
     return await listar_ventas(uow, pag)
 
 
-@router.get("/{id}", response_model=VentaRead)
+# C-13: reemplazar por la decisión de dueño en el servicio
+@router_protegido.get("/{id}", dependencies=[Depends(requiere_rol(*PERSONAL))], response_model=VentaRead)
 async def obtener_venta_endpoint(
     id: int, uow: VentasUnitOfWork = Depends(get_ventas_uow)
 ) -> VentaRead:

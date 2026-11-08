@@ -3,6 +3,15 @@
 # C-05: venta con un libro o un cliente inexistente. Requiere `python scripts/seed.py`.
 # Ninguno de los dos casos deja filas en venta ni en renglon_venta.
 
+### login de administrador (C-12)
+# Requiere `test/C-12-preparacion.sql` (admin@example.com; provisorio hasta el seed.py de C-14).
+# Deja la cookie en el jar de REST Client para los pedidos siguientes: desde C-12 las escrituras exigen sesion.
+# Esperado: HTTP/1.1 200 OK. Set-Cookie: access_token=...; HttpOnly
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "admin@example.com", "password": "clave-admin-1" }
+
 ### C-05: cliente inexistente
 # Esperado: HTTP/1.1 409 Conflict
 # Cuerpo: {"detail": "El cliente o algún libro de la venta no existe"}

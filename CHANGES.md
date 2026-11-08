@@ -316,7 +316,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-07 → C-08 → C-09* / C-10* →
   - `knowledge-base/09_decisiones_y_supuestos.md` §DD-11, §DD-14, §SU-08, §SU-09, §SU-10
 
 ### [C-12] `autorizacion-roles-y-rutas`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` archivado
 - **Scope** (Ejercicio 5 parcial, 12 pts; US-110..US-112; RN-03, RN-04, RN-05, RN-06, RN-14, RN-16):
   - `get_usuario_actual` (cookie ausente/inválida → 401) y `requiere_rol(...)` (403): roles **vigentes leídos de la base en cada petición**, en la misma sesión que luego usa el UoW (RN-04, DD-10); roles del token solo informativos
   - Dos grupos de rutas en `app/main.py`: sin sesión (health, registro, login) y con sesión; el control de cambio obligatorio de contraseña (RN-06, 403) montado **una sola vez** sobre el grupo protegido, con excepción de `/auth/*`
@@ -440,7 +440,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-07 → C-08 → C-09* / C-10* →
 | C-09 | modulos-a-repositorios-uow | P6 (16) + P3 (8) | C-08 | ALTO | `[x]` |
 | C-10 | modelos-acceso-stock-migraciones | P2 (10) + P7 trigger | C-08 | CRITICO | `[x]` |
 | C-11 | autenticacion | P4 (14) + P7 intento | C-09, C-10 | CRITICO | `[x]` |
-| C-12 | autorizacion-roles-y-rutas | P5 (12) | C-11 | CRITICO | `[ ]` |
+| C-12 | autorizacion-roles-y-rutas | P5 (12) | C-11 | CRITICO | `[x]` |
 | C-13 | stock-movimientos-baja-logica-ventas | P6 parte 2 + P8 (6) | C-12, C-10 | ALTO | `[ ]` |
 | C-14 | seed-casos-y-evidencia | transversal | C-13 | MEDIO | `[ ]` |
 | C-15 | imagen-docker-tp-cap1a4 | P9 (11) | — | ALTO | `[ ]` |

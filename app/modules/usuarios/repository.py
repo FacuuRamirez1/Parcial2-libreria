@@ -50,6 +50,40 @@ class AsignacionRolRepository(BaseRepository[AsignacionRol]):
         resultado = await self.session.exec(self._consulta_roles_vigentes(usuario_id, ahora))
         return list(resultado.all())
 
+    async def get_abierta(self, usuario_id: int, rol: str) -> AsignacionRol | None:
+        """La asignación abierta (`revocada_en IS NULL`) de ese rol, vigente o vencida.
+
+        A lo sumo una por el índice único parcial ix_asignacion_rol_abierta (su garante)."""
+        resultado = await self.session.exec(
+            select(AsignacionRol)
+            .where(AsignacionRol.usuario_id == usuario_id)
+            .where(AsignacionRol.rol == rol)
+            .where(AsignacionRol.revocada_en.is_(None))
+        )
+        return resultado.first()
+
+    async def contar_admins_vigentes(self, ahora: datetime) -> int:
+        """Usuarios ACTIVOS con ADMIN vigente (no revocado y sin vencer a `ahora`). Una sola
+        consulta con JOIN a `usuario` para mirar `activo`; cuenta usuarios, no asignaciones."""
+        resultado = await self.session.exec(
+            select(func.count(func.distinct(AsignacionRol.usuario_id)))
+            .join(Usuario, Usuario.id == AsignacionRol.usuario_id)
+            .where(AsignacionRol.rol == "ADMIN")
+            .where(Usuario.activo.is_(True))
+            .where(AsignacionRol.revocada_en.is_(None))
+            .where(or_(AsignacionRol.vence_en.is_(None), AsignacionRol.vence_en > ahora))
+        )
+        return resultado.one()
+
+    async def listar_de_usuario(self, usuario_id: int) -> list[AsignacionRol]:
+        """Todo el historial del usuario (vigentes, vencidas y revocadas), por `desde` e id."""
+        resultado = await self.session.exec(
+            select(AsignacionRol)
+            .where(AsignacionRol.usuario_id == usuario_id)
+            .order_by(AsignacionRol.desde, AsignacionRol.id)
+        )
+        return list(resultado.all())
+
 
 class IntentoAccesoRepository(BaseRepository[IntentoAcceso]):
     def __init__(self, session: AsyncSession) -> None:
@@ -85,6 +119,16 @@ class IntentoAccesoRepository(BaseRepository[IntentoAcceso]):
 class EventoSeguridadRepository(BaseRepository[EventoSeguridad]):
     def __init__(self, session: AsyncSession) -> None:
         super().__init__(session, EventoSeguridad)
+
+    async def listar_recientes(self, offset: int, limit: int) -> list[EventoSeguridad]:
+        """Una página del historial, del más reciente al más antiguo (`cuando DESC, id DESC`)."""
+        resultado = await self.session.exec(
+            select(EventoSeguridad)
+            .order_by(EventoSeguridad.cuando.desc(), EventoSeguridad.id.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+        return list(resultado.all())
 
 
 class RegistroIntentosPropio:

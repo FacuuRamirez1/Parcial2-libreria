@@ -5,6 +5,15 @@
 # para asegurar más de 5 libros); los casos de página vacía
 # no necesitan datos (usan un filtro que no coincide).
 
+### login de administrador (C-12)
+# Requiere `test/C-12-preparacion.sql` (admin@example.com; provisorio hasta el seed.py de C-14).
+# Deja la cookie en el jar de REST Client para los pedidos siguientes: desde C-12 las escrituras exigen sesion.
+# Esperado: HTTP/1.1 200 OK. Set-Cookie: access_token=...; HttpOnly
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "admin@example.com", "password": "clave-admin-1" }
+
 ### C-09: valores por defecto page=1 / size=20
 # Esperado: HTTP/1.1 200 OK con PaginatedResponse, page=1, size=20.
 GET {{base}}/editoriales/

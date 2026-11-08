@@ -2,6 +2,15 @@
 
 # C-02: ISBN o email repetido. Requiere `python scripts/seed.py` (libro 1 y cliente 2 ya existen).
 
+### login de administrador (C-12)
+# Requiere `test/C-12-preparacion.sql` (admin@example.com; provisorio hasta el seed.py de C-14).
+# Deja la cookie en el jar de REST Client para los pedidos siguientes: desde C-12 las escrituras exigen sesion.
+# Esperado: HTTP/1.1 200 OK. Set-Cookie: access_token=...; HttpOnly
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "admin@example.com", "password": "clave-admin-1" }
+
 ### C-02: ISBN repetido (el de "Rayuela", libro 1)
 # Esperado: HTTP/1.1 409 Conflict, con mensaje propio (sin nombres de tablas ni restricciones).
 # Cuerpo: {"detail": "Conflicto de integridad: registro duplicado o referencia inválida"}
