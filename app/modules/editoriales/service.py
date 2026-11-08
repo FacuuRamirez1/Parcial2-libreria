@@ -33,7 +33,7 @@ async def crear_editorial(uow: EditorialesUnitOfWork, data: EditorialCreate) -> 
 async def listar_editoriales(uow: EditorialesUnitOfWork, pag: Paginacion) -> PaginatedResponse[EditorialRead]:
     async with uow:
         total = await uow.editoriales.count()
-        verificar_pagina(pag.page, total, pag.size)
+        verificar_pagina(pag.page, pag.size, total)
         items = await uow.editoriales.get_all(offset=pag.offset, limit=pag.limit)
         return PaginatedResponse(
             items=[EditorialRead.model_validate(e) for e in items],
@@ -71,7 +71,7 @@ async def listar_libros_de_editorial(
             select(func.count()).select_from(Libro).where(Libro.editorial_id == id)
         )
         total = total.one()
-        verificar_pagina(pag.page, total, pag.size)
+        verificar_pagina(pag.page, pag.size, total)
         resultado = await uow.session.exec(
             select(Libro)
             .where(Libro.editorial_id == id)

@@ -4,6 +4,8 @@ Nunca construye el UoW, nunca llama session.commit(); usa uow.ventas y
 uow.session para la consulta de libros (precios) y la alta de venta.
 """
 
+import asyncio
+import logging
 from decimal import Decimal
 
 from fastapi import HTTPException
@@ -20,6 +22,18 @@ from app.modules.ventas.unit_of_work import VentasUnitOfWork
 CENTAVOS = Decimal("0.01")
 MENSAJE_VENTA_NO_ENCONTRADA = "Venta no encontrada"
 MENSAJE_REFERENCIA_INVALIDA = "El cliente o algún libro de la venta no existe"
+logger = logging.getLogger(__name__)
+
+
+async def _esperar_aviso() -> None:
+    """Pausa no bloqueante del aviso; aislada para poder controlarla en tests."""
+    await asyncio.sleep(0.5)
+
+
+async def enviar_aviso_comprobante(venta_id: int, total: Decimal) -> None:
+    """Aviso simulado que corre en segundo plano, después de responder la venta."""
+    await _esperar_aviso()
+    logger.info("Aviso de comprobante enviado: venta=%s total=%s", venta_id, total)
 
 
 def _subtotal(precio_unitario: Decimal, cantidad: int) -> Decimal:
@@ -76,7 +90,7 @@ async def crear_venta(uow: VentasUnitOfWork, datos: VentaCreate) -> VentaRead:
             ],
         )
         try:
-            uow.ventas.add(venta)
+            await uow.ventas.add(venta)
         except IntegrityError:
             raise HTTPException(status_code=409, detail=MENSAJE_REFERENCIA_INVALIDA)
         return await _obtener_detalle(uow, venta.id)
@@ -87,7 +101,7 @@ async def listar_ventas(
 ) -> PaginatedResponse[VentaRead]:
     async with uow:
         total = await uow.ventas.count(cliente_id=cliente_id)
-        verificar_pagina(pag.page, total, pag.size)
+        verificar_pagina(pag.page, pag.size, total)
         items = await uow.ventas.get_all(
             offset=pag.offset, limit=pag.limit, cliente_id=cliente_id
         )

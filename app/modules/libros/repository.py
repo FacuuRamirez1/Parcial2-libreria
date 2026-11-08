@@ -7,9 +7,12 @@ y detalle. Sin borrado_en ni soft_delete (esa columna no existe en C-09).
 
 from typing import Sequence
 
-from sqlalchemy import func, select
+from sqlalchemy import func
+from sqlmodel import select
 from sqlalchemy.orm import joinedload
 from sqlmodel import SQLModel
+
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.repository import BaseRepository
 from app.modules.libros.models import Libro
@@ -17,6 +20,10 @@ from app.modules.libros.models import Libro
 
 class LibroRepository(BaseRepository[Libro]):
     """Acceso a Libro con filtros de catálogo y carga anticipada."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        super().__init__(session, Libro)
+
 
     def _opciones_lista(self) -> tuple:
         return (joinedload(Libro.editorial), joinedload(Libro.genero))

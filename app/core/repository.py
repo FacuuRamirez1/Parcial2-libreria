@@ -11,7 +11,8 @@ from collections.abc import Sequence
 from datetime import datetime, timezone
 from typing import TypeVar
 
-from sqlalchemy import func, select
+from sqlalchemy import func
+from sqlmodel import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import SQLModel
 

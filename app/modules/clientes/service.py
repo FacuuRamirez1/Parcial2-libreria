@@ -103,7 +103,7 @@ async def crear_cliente(uow: ClientesUnitOfWork, datos: ClienteCreate) -> Client
     try:
         async with uow:
             cliente = Cliente(**datos.model_dump())
-            uow.clientes.add(cliente)  # flush: dispara el UNIQUE de email
+            await uow.clientes.add(cliente)  # flush: dispara el UNIQUE de email
     except IntegrityError:
         raise HTTPException(status_code=409, detail=MENSAJE_EMAIL_DUPLICADO)
     return ClienteRead.model_validate(cliente)
@@ -112,7 +112,7 @@ async def crear_cliente(uow: ClientesUnitOfWork, datos: ClienteCreate) -> Client
 async def listar_clientes(uow: ClientesUnitOfWork, pag: Paginacion) -> PaginatedResponse[ClienteRead]:
     async with uow:
         total = await uow.clientes.count()
-        verificar_pagina(pag.page, total, pag.size)
+        verificar_pagina(pag.page, pag.size, total)
         items = await uow.clientes.get_all(offset=pag.offset, limit=pag.limit)
         return PaginatedResponse(
             items=[ClienteRead.model_validate(c) for c in items],
@@ -138,7 +138,7 @@ async def actualizar_cliente(
                 raise HTTPException(status_code=404, detail=MENSAJE_CLIENTE_INEXISTENTE)
             for campo, valor in datos.model_dump(exclude_unset=True).items():
                 setattr(cliente, campo, valor)
-            uow.clientes.update(cliente)  # flush: dispara el UNIQUE de email
+            await uow.clientes.update(cliente)  # flush: dispara el UNIQUE de email
             resultado = await uow.session.exec(
                 select(Cliente)
                 .where(Cliente.id == id)
@@ -185,7 +185,7 @@ async def listar_ventas_de_cliente(
             select(func.count()).select_from(Venta).where(Venta.cliente_id == id)
         )
         total = total.one()
-        verificar_pagina(pag.page, total, pag.size)
+        verificar_pagina(pag.page, pag.size, total)
         resultado = await uow.session.exec(
             consulta.order_by(Venta.id).offset(pag.offset).limit(pag.limit)
         )

@@ -33,7 +33,7 @@ async def crear_genero(uow: GenerosUnitOfWork, data: GeneroCreate) -> GeneroRead
 async def listar_generos(uow: GenerosUnitOfWork, pag: Paginacion) -> PaginatedResponse[GeneroRead]:
     async with uow:
         total = await uow.generos.count()
-        verificar_pagina(pag.page, total, pag.size)
+        verificar_pagina(pag.page, pag.size, total)
         items = await uow.generos.get_all(offset=pag.offset, limit=pag.limit)
         return PaginatedResponse(
             items=[GeneroRead.model_validate(g) for g in items],
@@ -71,7 +71,7 @@ async def listar_libros_de_genero(
             select(func.count()).select_from(Libro).where(Libro.genero_id == id)
         )
         total = total.one()
-        verificar_pagina(pag.page, total, pag.size)
+        verificar_pagina(pag.page, pag.size, total)
         resultado = await uow.session.exec(
             select(Libro)
             .where(Libro.genero_id == id)

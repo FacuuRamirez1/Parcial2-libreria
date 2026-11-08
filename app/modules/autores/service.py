@@ -4,7 +4,8 @@ Nunca construye el UoW, nunca llama session.commit(); usa uow.repositorios.
 """
 
 from fastapi import HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import func
+from sqlmodel import select
 from sqlalchemy.orm import joinedload
 
 from app.core.paginacion import Paginacion, PaginatedResponse, calcular_paginas, verificar_pagina
@@ -34,7 +35,7 @@ async def crear_autor(uow: AutoresUnitOfWork, data: AutorCreate) -> AutorRead:
 async def listar_autores(uow: AutoresUnitOfWork, pag: Paginacion) -> PaginatedResponse[AutorRead]:
     async with uow:
         total = await uow.autores.count()
-        verificar_pagina(pag.page, total, pag.size)
+        verificar_pagina(pag.page, pag.size, total)
         items = await uow.autores.get_all(offset=pag.offset, limit=pag.limit)
         return PaginatedResponse(
             items=[AutorRead.model_validate(a) for a in items],
@@ -73,7 +74,7 @@ async def listar_libros_de_autor(
             select(func.count()).select_from(LibroAutor).where(LibroAutor.autor_id == id)
         )
         total = total.one()
-        verificar_pagina(pag.page, total, pag.size)
+        verificar_pagina(pag.page, pag.size, total)
         resultado = await uow.session.exec(
             select(LibroAutor)
             .where(LibroAutor.autor_id == id)

@@ -7,7 +7,8 @@ uow.session para consultas cruzadas (alta con autorías, detalle, relación).
 from decimal import Decimal
 
 from fastapi import HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import func
+from sqlmodel import select
 from sqlalchemy.orm import joinedload, selectinload
 
 from app.core.paginacion import Paginacion, PaginatedResponse, calcular_paginas, verificar_pagina
@@ -82,7 +83,7 @@ async def listar_libros(
 ) -> PaginatedResponse[LibroListaRead]:
     async with uow:
         total = await uow.libros.count_filtrado(titulo=titulo, genero_id=genero_id)
-        verificar_pagina(pag.page, total, pag.size)
+        verificar_pagina(pag.page, pag.size, total)
         items = await uow.libros.get_all_filtrado(
             titulo=titulo, genero_id=genero_id, offset=pag.offset, limit=pag.limit
         )

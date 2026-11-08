@@ -7,8 +7,11 @@ responsabilidad del UnitOfWork).
 
 from typing import Sequence
 
-from sqlalchemy import func, select
+from sqlalchemy import func
+from sqlmodel import select
 from sqlalchemy.orm import joinedload, selectinload
+
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.repository import BaseRepository
 from app.modules.ventas.models import RenglonVenta, Venta
@@ -16,6 +19,10 @@ from app.modules.ventas.models import RenglonVenta, Venta
 
 class VentaRepository(BaseRepository[Venta]):
     """Acceso a Venta con detalla precargada y filtro opcional por cliente."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        super().__init__(session, Venta)
+
 
     def _opciones_detalle(self) -> tuple:
         return (
