@@ -1,0 +1,28 @@
+=== solo_agregado.sql ===
+BEGIN
+INSERT 0 1
+INSERT 0 1
+ id | cantidad |        motivo        
+----+----------+----------------------
+  9 |        5 | Prueba solo agregado
+(1 row)
+
+SAVEPOINT
+ROLLBACK
+SAVEPOINT
+ROLLBACK
+ id | cantidad |        motivo        
+----+----------+----------------------
+  9 |        5 | Prueba solo agregado
+(1 row)
+
+ROLLBACK
+ movimientos_residuales | usuarios_residuales 
+------------------------+---------------------
+                      0 |                   0
+(1 row)
+
+psql:test/solo_agregado.sql:34: ERROR:  movimiento_stock es de solo agregado: UPDATE no permitido
+CONTEXT:  función PL/pgSQL movimiento_stock_solo_agregado() en la línea 3 en RAISE
+psql:test/solo_agregado.sql:41: ERROR:  movimiento_stock es de solo agregado: DELETE no permitido
+CONTEXT:  función PL/pgSQL movimiento_stock_solo_agregado() en la línea 3 en RAISE

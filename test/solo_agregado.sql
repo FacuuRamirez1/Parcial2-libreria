@@ -1,8 +1,8 @@
--- test/solo_agregado.sql  (BORRADOR de C-10; C-14 lo deja final sobre el seed del Parcial)
+-- test/solo_agregado.sql
 -- Prueba que movimiento_stock es de solo agregado (RN-12). Autocontenido: crea sus propios
 -- datos dentro de una transaccion y termina en ROLLBACK, asi que no deja filas.
 -- Uso:  psql -U <usuario> -d <base> -f test/solo_agregado.sql
--- Requiere: base migrada (0003 o 0004) y al menos un libro (ej. tras `python scripts/seed.py`).
+-- Requiere: base migrada (0003 o 0004) y al menos un libro (ej. tras `python seed.py`).
 --
 -- Resultado esperado SIN trigger (migracion 0003, "rojo"): UPDATE y DELETE se ACEPTAN.
 -- Resultado esperado CON trigger (migracion 0004, "verde"): UPDATE y DELETE fallan con

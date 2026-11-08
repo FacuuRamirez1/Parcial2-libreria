@@ -1,11 +1,11 @@
 @base = http://127.0.0.1:8000
 
 # C-10: esquema 0003/0004 (índice único parcial de ISBN entre vigentes, trigger de solo agregado).
-# Requiere `alembic upgrade head` (cabeza 0004) y `python scripts/seed.py` antes de correr este archivo.
+# Requiere `alembic upgrade head` (cabeza 0004) y `python seed.py` antes de correr este archivo.
 # El trigger se prueba aparte con test/solo_agregado.sql (no hay endpoint que modifique movimientos).
 
 ### login de administrador (C-12)
-# Requiere `test/C-12-preparacion.sql` (admin@example.com; provisorio hasta el seed.py de C-14).
+# Requiere `python seed.py`.
 # Deja la cookie en el jar de REST Client para los pedidos siguientes: desde C-12 las escrituras exigen sesion.
 # Esperado: HTTP/1.1 200 OK. Set-Cookie: access_token=...; HttpOnly
 POST {{base}}/auth/login

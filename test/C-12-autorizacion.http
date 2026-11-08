@@ -3,14 +3,13 @@
 # C-12: autorización por roles y grupos de rutas (abierto / protegido).
 # Requisitos previos, en este orden:
 #   1. alembic upgrade head            (cabeza 0004)
-#   2. python scripts/seed.py
-#   3. psql -f test/C-12-preparacion.sql   (admin@, admin2@, vendedor@, nuevo@ example.com; provisorio hasta C-14)
-#   4. uvicorn app.main:app
-# Contrasenas de mentira (ver C-12-preparacion.sql):
+#   2. python seed.py                  (admin@, admin2@, vendedor@, nuevo@ example.com)
+#   3. uvicorn app.main:app
+# Contrasenas de mentira (definidas en seed.py):
 #   admin@ clave-admin-1 | admin2@ clave-admin-2 | vendedor@ clave-vendedor-1 | nuevo@ clave-nuevo-1
 # Cada pedido va con `# @no-cookie-jar` y la cookie se pasa a mano: varias sesiones a la vez.
 # Los correos de registro llevan {{$timestamp}} para no depender de corridas anteriores.
-# Para repetir una corrida completa: restablecer la base (alembic downgrade base, upgrade head, `python scripts/seed.py`; el alta de tomas@ lo deja con usuario) y despues el .sql
+# Para repetir una corrida completa: restablecer la base (alembic downgrade base, upgrade head, `python seed.py`; el alta de tomas@ lo deja con usuario)
 # (nuevo@ cambia su contrasena en la seccion C-09; las revocaciones de la seccion final quitan roles a vendedor@ y admin2@).
 
 # ===================== SESIONES =====================
@@ -324,7 +323,7 @@ Cookie: {{loginAdmin.response.headers.Set-Cookie}}
 ### C-12 alta: correo de un cliente del mostrador sin usuario (tomas@example.com del seed)
 # Esperado: HTTP/1.1 201 Created.
 # psql: SELECT usuario_id FROM cliente WHERE email = 'tomas@example.com';  -> (nulo) (la ficha no cambia)
-# (requiere `python scripts/seed.py` previo: tras esta corrida tomas@ ya tiene usuario)
+# (requiere `python seed.py` previo: tras esta corrida tomas@ ya tiene usuario)
 # @no-cookie-jar
 POST {{base}}/usuarios
 Content-Type: application/json
@@ -556,7 +555,7 @@ Cookie: {{loginOtro.response.headers.Set-Cookie}}
 ###
 # ===================== REVOCACION (DELETE /usuarios/{id}/roles/{rol}, caso C-07) =====================
 # Se revoca VENDEDOR a vendedor@ (loginVendedor sigue con su cookie): despues de esta seccion vendedor@ ya no
-# vende hasta volver a correr test/C-12-preparacion.sql.
+# vende hasta volver a correr `python seed.py`.
 
 ### C-12 revocacion: id del primer administrador
 # Esperado: HTTP/1.1 200 OK.
@@ -693,7 +692,7 @@ Cookie: {{loginAdmin2.response.headers.Set-Cookie}}
 #   RESULTADO: 409 El sistema no puede quedarse sin administradores
 #   fila ADMIN de admin2@ sigue abierta: t
 #   eventos antes/despues: 0 0                      <- el rechazo no deja evento
-# Restablecer con alembic downgrade base / upgrade head / seed.py / test/C-12-preparacion.sql.
+# Restablecer con alembic downgrade base / upgrade head / python seed.py.
 
 ###
 # ===================== HISTORIAL DE SEGURIDAD (GET /eventos, spec historial-seguridad) =====================

@@ -144,6 +144,50 @@ async def test_detalle_de_venta_muestra_el_titulo_de_un_libro_dado_de_baja(
     assert respuesta.status_code == 200, respuesta.text
     assert respuesta.json()["renglones"][0]["titulo"] == "Rayuela"
 
+async def test_detalle_de_venta_usa_el_mismo_numero_de_consultas_con_dos_o_cuatro_renglones(
+    cliente, usuarios, sesiones, catalogo
+):
+    libros = []
+    for indice in range(1, 5):
+        libro = (
+            await ayuda.crear_libro(
+                cliente,
+                sesiones["admin"],
+                catalogo,
+                isbn=f"978-950-02-0{indice}",
+                titulo=f"Libro consultas {indice}",
+                precio=f"{1000 * indice}.00",
+                stock_inicial=4,
+            )
+        ).json()
+        libros.append(libro)
+
+    venta_dos = await ayuda.vender(
+        cliente,
+        sesiones["vendedor"],
+        usuarios["ana"]["cliente_id"],
+        [{"libro_id": libro["id"], "cantidad": 1} for libro in libros[:2]],
+    )
+    venta_cuatro = await ayuda.vender(
+        cliente,
+        sesiones["vendedor"],
+        usuarios["ana"]["cliente_id"],
+        [{"libro_id": libro["id"], "cantidad": 1} for libro in libros],
+    )
+    assert venta_dos.status_code == 201, venta_dos.text
+    assert venta_cuatro.status_code == 201, venta_cuatro.text
+
+    ayuda.sesion(cliente, sesiones["admin"])
+    async with ayuda.contar_consultas(cliente.app.state.engine) as con_dos:
+        assert (await cliente.get(f"/ventas/{venta_dos.json()['id']}")).status_code == 200
+    async with ayuda.contar_consultas(cliente.app.state.engine) as con_cuatro:
+        assert (await cliente.get(f"/ventas/{venta_cuatro.json()['id']}")).status_code == 200
+
+    assert len(con_dos) == len(con_cuatro), (
+        f"2 renglones: {len(con_dos)} consultas; 4 renglones: {len(con_cuatro)}"
+    )
+
+
 async def test_detalle_de_venta_usa_el_mismo_numero_de_consultas_con_uno_o_dos_renglones(
     cliente, usuarios, sesiones, catalogo
 ):

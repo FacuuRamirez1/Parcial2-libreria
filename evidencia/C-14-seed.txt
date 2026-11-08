@@ -1,0 +1,77 @@
+Evidencia C-14: estado real de la base tras alembic upgrade head y python seed.py
+Base: libreria_test (PostgreSQL local)
+
+=== Libros y stock ===
+SQL: SELECT id, titulo, stock FROM libro ORDER BY id;
+ id |                titulo                 | stock 
+----+---------------------------------------+-------
+  1 | Rayuela                               |    10
+  2 | Antología de la literatura fantástica |     5
+  3 | Ficciones                             |     8
+  4 | Respiración artificial                |     3
+  5 | Bestiario                             |     1
+(5 rows)
+
+=== Suma de movimientos por libro ===
+SQL: SELECT libro_id, SUM(cantidad) AS suma FROM movimiento_stock GROUP BY libro_id ORDER BY libro_id;
+ libro_id | suma 
+----------+------
+        1 |   10
+        2 |    5
+        3 |    8
+        4 |    3
+        5 |    1
+(5 rows)
+
+=== Invariante stock == suma(movimientos) ===
+SQL: SELECT l.id, l.titulo, l.stock, COALESCE(SUM(m.cantidad), 0) AS suma, l.stock = COALESCE(SUM(m.cantidad), 0) AS invariante FROM libro l LEFT JOIN movimiento_stock m ON m.libro_id = l.id GROUP BY l.id, l.titulo, l.stock ORDER BY l.id;
+ id |                titulo                 | stock | suma | invariante 
+----+---------------------------------------+-------+------+------------
+  1 | Rayuela                               |    10 |   10 | t
+  2 | Antología de la literatura fantástica |     5 |    5 | t
+  3 | Ficciones                             |     8 |    8 | t
+  4 | Respiración artificial                |     3 |    3 | t
+  5 | Bestiario                             |     1 |    1 | t
+(5 rows)
+
+=== Venta 1 ===
+SQL: SELECT id, cliente_id, fecha, total FROM venta ORDER BY id;
+ id | cliente_id |             fecha             |  total   
+----+------------+-------------------------------+----------
+  1 |          1 | 2026-11-08 19:05:16.843531-03 | 69000.00
+(1 row)
+
+=== Renglones de la venta 1 ===
+SQL: SELECT id, venta_id, libro_id, cantidad, precio_unitario FROM renglon_venta WHERE venta_id = 1 ORDER BY id;
+ id | venta_id | libro_id | cantidad | precio_unitario 
+----+----------+----------+----------+-----------------
+  1 |        1 |        1 |        1 |        25000.00
+  2 |        1 |        3 |        2 |        22000.00
+(2 rows)
+
+=== Eventos de seguridad ===
+SQL: SELECT id, actor, accion FROM evento_seguridad ORDER BY id;
+ id |  actor  |            accion            
+----+---------+------------------------------
+  1 | SISTEMA | Carga de los datos iniciales
+(1 row)
+
+=== Usuarios y roles vigentes ===
+SQL: SELECT u.id, u.email, u.nombre, u.activo, u.debe_cambiar_password, a.rol FROM usuario u LEFT JOIN asignacion_rol a ON a.usuario_id = u.id AND a.revocada_en IS NULL ORDER BY u.id;
+ id |        email         |      nombre       | activo | debe_cambiar_password |   rol    
+----+----------------------+-------------------+--------+-----------------------+----------
+  1 | admin@example.com    | Administrador Uno | t      | f                     | ADMIN
+  2 | admin2@example.com   | Administrador Dos | t      | f                     | ADMIN
+  3 | vendedor@example.com | Vendedor Uno      | t      | f                     | VENDEDOR
+  4 | ana@example.com      | Ana Paz           | t      | f                     | CLIENTE
+  5 | nuevo@example.com    | Vendedor Nuevo    | t      | t                     | VENDEDOR
+(5 rows)
+
+=== Clientes ===
+SQL: SELECT id, nombre, email, usuario_id FROM cliente ORDER BY id;
+ id |     nombre      |       email       | usuario_id 
+----+-----------------+-------------------+------------
+  1 | Lucía Fernández | lucia@example.com |           
+  2 | Tomás Ríos      | tomas@example.com |           
+  3 | Ana Paz         | ana@example.com   |          4
+(3 rows)

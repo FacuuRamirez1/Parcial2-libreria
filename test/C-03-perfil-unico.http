@@ -1,10 +1,10 @@
 @base = http://127.0.0.1:8000
 
-# C-03: segundo perfil para el mismo cliente. Requiere `python scripts/seed.py`
-# (el cliente 1, Ana Pérez, ya tiene perfil; el cliente 2 no).
+# C-03: segundo perfil para el mismo cliente. Requiere `python seed.py`
+# (el cliente 1, Lucía Fernández, ya tiene perfil; el cliente 2 no).
 
 ### login de administrador (C-12)
-# Requiere `test/C-12-preparacion.sql` (admin@example.com; provisorio hasta el seed.py de C-14).
+# Requiere `python seed.py`.
 # Deja la cookie en el jar de REST Client para los pedidos siguientes: desde C-12 las escrituras exigen sesion.
 # Esperado: HTTP/1.1 200 OK. Set-Cookie: access_token=...; HttpOnly
 POST {{base}}/auth/login
@@ -25,7 +25,7 @@ Content-Type: application/json
 
 ### C-03: el cliente 1 muestra su perfil como objeto (no como lista)
 # Esperado: HTTP/1.1 200 OK
-# Cuerpo: {"id": 1, "nombre": "Ana Pérez", "email": "ana.perez@example.com",
+# Cuerpo: {"id": 1, "nombre": "Lucía Fernández", "email": "lucia@example.com",
 #          "perfil": {"id": 1, "telefono": "11-5555-0101", "direccion": "Av. Corrientes 1234", "cliente_id": 1}}
 GET {{base}}/clientes/1
 

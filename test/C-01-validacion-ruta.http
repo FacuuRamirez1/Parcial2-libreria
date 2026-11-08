@@ -1,10 +1,10 @@
 @base = http://127.0.0.1:8000
 
 # C-01: un parámetro de ruta que no es entero.
-# Antes: `alembic upgrade head` y `python scripts/seed.py` (el caso no necesita datos).
+# Antes: `alembic upgrade head` y `python seed.py` (el caso no necesita datos).
 
 ### login de administrador (C-12)
-# Requiere `test/C-12-preparacion.sql` (admin@example.com; provisorio hasta el seed.py de C-14).
+# Requiere `python seed.py`.
 # Deja la cookie en el jar de REST Client para los pedidos siguientes: desde C-12 las escrituras exigen sesion.
 # Esperado: HTTP/1.1 200 OK. Set-Cookie: access_token=...; HttpOnly
 POST {{base}}/auth/login

@@ -1,10 +1,10 @@
 @base = http://127.0.0.1:8000
 
-# C-05: venta con un libro o un cliente inexistente. Requiere `python scripts/seed.py`.
+# C-05: venta con un libro o un cliente inexistente. Requiere `python seed.py`.
 # Ninguno de los dos casos deja filas en venta ni en renglon_venta.
 
 ### login de administrador (C-12)
-# Requiere `test/C-12-preparacion.sql` (admin@example.com; provisorio hasta el seed.py de C-14).
+# Requiere `python seed.py`.
 # Deja la cookie en el jar de REST Client para los pedidos siguientes: desde C-12 las escrituras exigen sesion.
 # Esperado: HTTP/1.1 200 OK. Set-Cookie: access_token=...; HttpOnly
 POST {{base}}/auth/login

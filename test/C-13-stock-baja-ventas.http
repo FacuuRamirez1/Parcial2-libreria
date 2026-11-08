@@ -3,9 +3,8 @@
 # C-13: stock por movimientos, baja logica, re-alta de ISBN y ventas atomicas.
 # Requisitos previos, en este orden:
 #   1. alembic upgrade head            (cabeza 0004)
-#   2. python scripts/seed.py
-#   3. psql -f test/C-12-preparacion.sql   (admin@ y vendedor@ example.com)
-#   4. uvicorn app.main:app
+#   2. python seed.py                  (admin@ y vendedor@ example.com)
+#   3. uvicorn app.main:app
 # Cada pedido va con `# @no-cookie-jar` y la cookie se pasa a mano: varias sesiones a la vez.
 # Los correos de registro llevan {{$timestamp}} para no depender de corridas anteriores.
 

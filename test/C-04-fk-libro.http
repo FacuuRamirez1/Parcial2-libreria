@@ -1,10 +1,10 @@
 @base = http://127.0.0.1:8000
 
-# C-04: libro con una editorial o un autor inexistente. Requiere `python scripts/seed.py`.
+# C-04: libro con una editorial o un autor inexistente. Requiere `python seed.py`.
 # El alta no consulta antes si el id existe: se escribe y la clave foránea responde 409.
 
 ### login de administrador (C-12)
-# Requiere `test/C-12-preparacion.sql` (admin@example.com; provisorio hasta el seed.py de C-14).
+# Requiere `python seed.py`.
 # Deja la cookie en el jar de REST Client para los pedidos siguientes: desde C-12 las escrituras exigen sesion.
 # Esperado: HTTP/1.1 200 OK. Set-Cookie: access_token=...; HttpOnly
 POST {{base}}/auth/login
@@ -45,7 +45,7 @@ Content-Type: application/json
 
 ### C-04 (alta válida): ids de editorial, género y autores más rol y orden
 # Esperado: HTTP/1.1 201 Created, con el detalle (editorial, género y autores).
-# Cuerpo: {"id": 5, "isbn": "978-950-00-0006-6", "titulo": "Los que aman, odian", "precio": "21000.00",
+# Cuerpo: {"id": 6, "isbn": "978-950-00-0006-6", "titulo": "Los que aman, odian", "precio": "21000.00",
 #          "stock": 4, "editorial_id": 1, "genero_id": 1,
 #          "editorial": {"id": 1, "nombre": "Sudamericana", "pais": "Argentina"},
 #          "genero": {"id": 1, "nombre": "Novela"},

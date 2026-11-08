@@ -1,9 +1,9 @@
 @base = http://127.0.0.1:8000
 
-# C-02: ISBN o email repetido. Requiere `python scripts/seed.py` (libro 1 y cliente 2 ya existen).
+# C-02: ISBN o email repetido. Requiere `python seed.py` (libro 1 y cliente 2 ya existen).
 
 ### login de administrador (C-12)
-# Requiere `test/C-12-preparacion.sql` (admin@example.com; provisorio hasta el seed.py de C-14).
+# Requiere `python seed.py`.
 # Deja la cookie en el jar de REST Client para los pedidos siguientes: desde C-12 las escrituras exigen sesion.
 # Esperado: HTTP/1.1 200 OK. Set-Cookie: access_token=...; HttpOnly
 POST {{base}}/auth/login

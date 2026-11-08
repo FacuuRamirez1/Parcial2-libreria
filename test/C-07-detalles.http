@@ -3,11 +3,11 @@
 # C-07: detalle de un libro y de una venta sin N+1.
 # Arrancar el servidor con SQL_ECHO=true en el .env y mirar la consola: la cantidad de
 # SELECT es fija y la misma con uno o con varios autores / renglones.
-# Requiere `python scripts/seed.py`. No depende de ids de secuencia: el archivo crea su propia
+# Requiere `python seed.py`. No depende de ids de secuencia: el archivo crea su propia
 # venta y reutiliza el id de la respuesta (los alta fallidos de C-02..C-05 consumen ids).
 
 ### login de administrador (C-12)
-# Requiere `test/C-12-preparacion.sql` (admin@example.com; provisorio hasta el seed.py de C-14).
+# Requiere `python seed.py`.
 # Deja la cookie en el jar de REST Client para los pedidos siguientes: desde C-12 las escrituras exigen sesion.
 # Esperado: HTTP/1.1 200 OK. Set-Cookie: access_token=...; HttpOnly
 POST {{base}}/auth/login
@@ -20,9 +20,9 @@ Content-Type: application/json
 #   1) libro + editorial + género (joinedload)   2) libro_autor + autor (selectinload + joinedload)
 GET {{base}}/libros/1
 
-### C-07: detalle del libro 3 (tres autores)
+### C-07: detalle del libro 2 (tres autores)
 # Esperado: HTTP/1.1 200 OK. Consola: los mismos 2 SELECT que con un solo autor.
-GET {{base}}/libros/3
+GET {{base}}/libros/2
 
 ### C-07: detalle de la venta 1 (dos renglones)
 # Esperado: HTTP/1.1 200 OK, con cliente y renglones. Consola: 2 SELECT

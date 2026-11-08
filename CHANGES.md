@@ -365,7 +365,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-07 → C-08 → C-09* / C-10* →
 ## FASE 9 — Evidencia y entrega
 
 ### [C-14] `seed-casos-y-evidencia`
-- **Estado**: `[ ]` pendiente
+- **Estado**: `[x]` implementado (pendiente de archivar)
 - **Scope** (transversal a los ejercicios del Parcial; US-122; entregables transversales):
   - `seed.py` en la **raíz** según la tabla de datos iniciales, con evento `SISTEMA` en `evento_seguridad`; se mueve `scripts/seed.py` a la raíz (IN-02b, DD-12); asincrónico e idempotente
   - `test/*.http` casos C-01..C-16 del parcial con varias sesiones (`# @name`, `@no-cookie-jar`) y respuesta esperada comentada
@@ -442,7 +442,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-07 → C-08 → C-09* / C-10* →
 | C-11 | autenticacion | P4 (14) + P7 intento | C-09, C-10 | CRITICO | `[x]` |
 | C-12 | autorizacion-roles-y-rutas | P5 (12) | C-11 | CRITICO | `[x]` |
 | C-13 | stock-movimientos-baja-logica-ventas | P6 parte 2 + P8 (6) | C-12, C-10 | ALTO | `[x]` |
-| C-14 | seed-casos-y-evidencia | transversal | C-13 | MEDIO | `[ ]` |
+| C-14 | seed-casos-y-evidencia | transversal | C-13 | MEDIO | `[x]` |
 | C-15 | imagen-docker-tp-cap1a4 | P9 (11) | — | ALTO | `[ ]` |
 | C-16 | despliegue-vps | P10 (7) | C-15 | ALTO | `[ ]` |
 

@@ -1,6 +1,6 @@
 @base = http://127.0.0.1:8000
 
-# C-08: búsqueda por título. Requiere `python scripts/seed.py`.
+# C-08: búsqueda por título. Requiere `python seed.py`.
 # El texto viaja como parámetro ligado: nunca se arma SQL con él.
 # Los listados ahora devuelven PaginatedResponse {items,total,page,size,pages}.
 

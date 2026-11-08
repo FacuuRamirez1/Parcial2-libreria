@@ -1,8 +1,8 @@
 @base = http://127.0.0.1:8000
 
 # C-11: autenticación (registro, login con límite de intentos).
-# Requiere `alembic upgrade head` (cabeza 0004) y `python scripts/seed.py` antes de correr este archivo.
-# El seed deja los clientes ana.perez@example.com y tomas@example.com SIN usuario.
+# Requiere `alembic upgrade head` (cabeza 0004) y `python seed.py` antes de correr este archivo.
+# El seed deja tomas@example.com como cliente SIN usuario (ana@example.com ya tiene el suyo).
 # Los correos de registro llevan {{$timestamp}} para no depender de corridas anteriores.
 
 # ===================== REGISTRO (POST /auth/registro) =====================
@@ -114,7 +114,7 @@ Content-Type: application/json
 
 ### C-11 registro: el correo se normaliza (espacios y mayúsculas)
 # Esperado: HTTP/1.1 201 Created con "email": "norm@example.com" (usuario y cliente quedan en minúsculas).
-# Si se corre dos veces sobre la misma base: 409 (correo fijo); correr `python scripts/seed.py` antes.
+# Si se corre dos veces sobre la misma base: 409 (correo fijo); correr `python seed.py` antes.
 POST {{base}}/auth/registro
 Content-Type: application/json
 

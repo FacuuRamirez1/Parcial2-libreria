@@ -1,12 +1,12 @@
 @base = http://127.0.0.1:8000
 
 # C-09: casos nuevos de paginación (regresión del refactor a capas).
-# Requiere `python scripts/seed.py` para tener datos (el último caso crea 2 libros propios
-# para asegurar más de 5 libros); los casos de página vacía
+# Requiere `python seed.py` para tener datos (el seed deja 5 libros y el último caso
+# crea 2 libros propios, ids 6 y 7); los casos de página vacía
 # no necesitan datos (usan un filtro que no coincide).
 
 ### login de administrador (C-12)
-# Requiere `test/C-12-preparacion.sql` (admin@example.com; provisorio hasta el seed.py de C-14).
+# Requiere `python seed.py`.
 # Deja la cookie en el jar de REST Client para los pedidos siguientes: desde C-12 las escrituras exigen sesion.
 # Esperado: HTTP/1.1 200 OK. Set-Cookie: access_token=...; HttpOnly
 POST {{base}}/auth/login
@@ -37,7 +37,8 @@ GET {{base}}/libros/?titulo=zzz-no-existe
 GET {{base}}/editoriales/?page=999
 
 ### C-09 (preparación): dos libros propios para que haya más de 5 en total
-# Con el seed solo hay 4 libros (5 con el de C-04): sin estos, page=2&size=5 daría 422.
+# Con el seed hay 5 libros (los ids 6 y 7 son los de este archivo); sin estos,
+# page=2&size=5 daría 422.
 # Esperado: HTTP/1.1 201 Created. (Si se repite sin re-sembrar: 409 por ISBN repetido, inofensivo.)
 POST {{base}}/libros/
 Content-Type: application/json
@@ -67,5 +68,5 @@ Content-Type: application/json
 
 ### C-09: paginación válida con page y size explícitos
 # Esperado: HTTP/1.1 200 OK con PaginatedResponse, page=2, size=5, pages>=2 e items no vacío
-# (hay al menos 6 libros con los dos de arriba).
+# (hay al menos 7 libros: los 5 del seed más los dos de arriba).
 GET {{base}}/libros/?page=2&size=5

@@ -1,10 +1,11 @@
 @base = http://127.0.0.1:8000
 
-# C-06: venta válida con dos renglones. Requiere `python scripts/seed.py`
+# C-06: venta válida con dos renglones. Requiere `python seed.py`
 # (cliente 2 = Tomás Ríos; libro 1 "Rayuela" = 25000.00 y libro 4 "Respiración artificial" = 27000.00).
+# El seed ya tiene la venta 1, así que esta nueva venta es la 2.
 
 ### login de administrador (C-12)
-# Requiere `test/C-12-preparacion.sql` (admin@example.com; provisorio hasta el seed.py de C-14).
+# Requiere `python seed.py`.
 # Deja la cookie en el jar de REST Client para los pedidos siguientes: desde C-12 las escrituras exigen sesion.
 # Esperado: HTTP/1.1 200 OK. Set-Cookie: access_token=...; HttpOnly
 POST {{base}}/auth/login
