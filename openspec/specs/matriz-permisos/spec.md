@@ -62,21 +62,6 @@ Fija qué exige cada ruta de la API: abierta para cualquiera, solo autenticada, 
 - **WHEN** se envía `GET /eventos` sin cookie
 - **THEN** la respuesta es 401
 
-### Requirement: Detalle de venta protegido sin decisión de dueño todavía
-`GET /ventas/{id}` (distinto del listado `GET /ventas/`, que es solo ADMIN) SHALL pertenecer al grupo protegido. Hasta que la decisión "personal o cliente dueño" se tome en el servicio de ventas, la ruta SHALL exigir un rol vigente `VENDEDOR` o `ADMIN`, de modo que ningún cliente vea ventas ajenas.
-
-#### Scenario: Detalle sin sesión
-- **WHEN** se envía `GET /ventas/1` sin cookie
-- **THEN** la respuesta es 401
-
-#### Scenario: Cliente pide un detalle de venta
-- **WHEN** un usuario con solo el rol `CLIENTE` envía `GET /ventas/1`
-- **THEN** la respuesta es 403
-
-#### Scenario: Vendedor pide un detalle de venta
-- **WHEN** un vendedor con sesión envía `GET /ventas/1`
-- **THEN** la respuesta es 200 con el detalle
-
 ### Requirement: Sin rutas fuera de la matriz
 La API NO SHALL exponer rutas distintas de las de esta matriz, de `/health/*` y de `/auth/*`; las rutas que la matriz no menciona y que otros changes agreguen SHALL declararse en esta capacidad al agregarse.
 
@@ -91,3 +76,37 @@ Los escenarios de otras capacidades que envían peticiones a rutas del grupo pro
 - **WHEN** un administrador con sesión envía `POST /editoriales/` con un cuerpo válido, como en el escenario "Alta de editorial"
 - **THEN** la respuesta es 201 con el `EditorialRead` creado
 - **AND** la misma petición sin cookie responde 401
+
+### Requirement: Stock y baja de libros solo para ADMIN
+`DELETE /libros/{id}`, `POST /libros/{id}/reponer` y `GET /libros/{id}/movimientos` SHALL pertenecer al grupo protegido y exigir el rol vigente `ADMIN`.
+
+#### Scenario: Vendedor que repone
+- **WHEN** un vendedor con sesión envía `POST /libros/1/reponer`
+- **THEN** la respuesta es 403 y el stock no cambia
+
+#### Scenario: Administrador que da de baja
+- **WHEN** un administrador con sesión envía `DELETE /libros/1`
+- **THEN** la respuesta es 204
+
+#### Scenario: Vendedor que pide movimientos
+- **WHEN** un vendedor con sesión envía `GET /libros/1/movimientos`
+- **THEN** la respuesta es 403
+
+### Requirement: Mis ventas y detalle de venta autenticados
+`GET /mis-ventas` y `GET /ventas/{id}` SHALL pertenecer al grupo protegido y exigir solo autenticación (sin rol). `GET /ventas/` (listado) SHALL seguir exigiendo `ADMIN`.
+
+#### Scenario: Cliente en mis-ventas
+- **WHEN** un cliente autenticado envía `GET /mis-ventas`
+- **THEN** la respuesta es 200 con sus ventas
+
+#### Scenario: Cliente en el detalle de una venta ajena
+- **WHEN** un cliente autenticado envía `GET /ventas/{id}` de una venta que no es suya
+- **THEN** la respuesta es 403
+
+#### Scenario: Listado de ventas como cliente
+- **WHEN** un cliente autenticado envía `GET /ventas/`
+- **THEN** la respuesta es 403
+
+#### Scenario: Sin sesión
+- **WHEN** se envía `GET /mis-ventas` o `GET /ventas/{id}` sin cookie
+- **THEN** la respuesta es 401

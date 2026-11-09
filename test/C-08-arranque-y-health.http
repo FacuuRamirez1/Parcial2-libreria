@@ -16,6 +16,11 @@
 # Esperado: HTTP/1.1 200 OK
 #           {"estado": "vivo"}
 
+### C-08: GET /health/ready con base disponible -> 200
+GET {{base}}/health/ready
+# Esperado: HTTP/1.1 200 OK
+#           {"estado": "listo", "base": "conectada"}
+
 ### C-08: GET /health/ready con base inaccesible -> 503 sin detalles internos
 # Esperado: HTTP/1.1 503 Service Unavailable
 #           {"detail": "Base no disponible"}

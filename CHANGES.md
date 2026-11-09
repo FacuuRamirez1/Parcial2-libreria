@@ -339,7 +339,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-07 → C-08 → C-09* / C-10* →
 ## FASE 8 — Stock, bajas y ventas
 
 ### [C-13] `stock-movimientos-baja-logica-ventas`
-- **Estado**: `[x]` implementado (pendiente de archivar)
+- **Estado**: `[x]` archivado
 - **Scope** (Ejercicio 6 parcial parte 2 y Ejercicio 8 parcial, 6 pts; US-117..US-121; RN-09, RN-10, RN-11, RN-13, RN-14):
   - Único punto de escritura de stock; `PATCH /libros/{id}` con `stock` → 422 (`extra="forbid"`)
   - `POST /libros` con `stock_inicial` (movimiento de alta); `POST /libros/{id}/reponer`; `GET /libros/{id}/movimientos`
@@ -365,7 +365,7 @@ C-01 → C-02 → C-03 → C-04 → C-05 → C-07 → C-08 → C-09* / C-10* →
 ## FASE 9 — Evidencia y entrega
 
 ### [C-14] `seed-casos-y-evidencia`
-- **Estado**: `[x]` implementado (pendiente de archivar)
+- **Estado**: `[x]` archivado
 - **Scope** (transversal a los ejercicios del Parcial; US-122; entregables transversales):
   - `seed.py` en la **raíz** según la tabla de datos iniciales, con evento `SISTEMA` en `evento_seguridad`; se mueve `scripts/seed.py` a la raíz (IN-02b, DD-12); asincrónico e idempotente
   - `test/*.http` casos C-01..C-16 del parcial con varias sesiones (`# @name`, `@no-cookie-jar`) y respuesta esperada comentada

@@ -53,19 +53,30 @@ El repositorio SHALL devolver la cantidad total de libros y la cantidad que cump
 - **THEN** devuelve la cantidad de filas que cumplen esos filtros
 
 ### Requirement: Escritura de libro mediante flush
-
-El repositorio SHALL agregar, actualizar o eliminar un libro con `flush()` y nunca con `commit()`. El stock no se edita por PATCH en esta fase.
+El repositorio SHALL agregar, actualizar o eliminar (baja lógica) un libro con `flush()` y nunca con `commit()`. El stock NO SHALL editarse por PATCH ni por una escritura directa del repositorio: solo cambia por el punto único de escritura de stock.
 
 #### Scenario: Alta de libro
-
 - **WHEN** se invoca `add` con una entidad Libro y se hace flush
 - **THEN** el libro persiste en la transacción abierta sin confirmarla
 
-### Requirement: Ausencia de borrado lógico de libro en esta fase
+#### Scenario: Baja lógica
+- **WHEN** se invoca `soft_delete` con un libro vigente
+- **THEN** el libro queda con `borrado_en` no nulo y persiste sin confirmar
 
-El repositorio SHALL no aplicar filtro `borrado_en IS NULL` ni exponer `soft_delete`, porque `libro.borrado_en` no existe hasta C-10.
+### Requirement: Lecturas del repositorio con baja lógica
+`get_by_id`, `get_all`, `get_all_filtrado` y `count_filtrado` SHALL excluir los libros con `borrado_en` no nulo. El repositorio SHALL ofrecer `get_by_id_including_deleted` para lecturas internas que necesiten un libro dado de baja.
 
-#### Scenario: No filtro de borrado
+#### Scenario: Listado sin dados de baja
+- **WHEN** se invoca `get_all_filtrado` después de dar de baja un libro
+- **THEN** el libro dado de baja no aparece en el resultado
 
-- **WHEN** se listan libros en C-09
-- **THEN** no se aplica filtro de `borrado_en` (la columna no existe)
+#### Scenario: Acceso incluyendo dados de baja
+- **WHEN** se invoca `get_by_id_including_deleted` con el id de un libro dado de baja
+- **THEN** devuelve la entidad
+
+### Requirement: Historial de movimientos de un libro
+El repositorio de libros SHALL ofrecer un método para listar los movimientos de un libro ordenados por id, sin carga perezosa, para `GET /libros/{id}/movimientos`.
+
+#### Scenario: Movimientos ordenados
+- **WHEN** se listan los movimientos de un libro con alta, reposición y venta
+- **THEN** devuelve las tres filas ordenadas por id ascendente

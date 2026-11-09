@@ -54,23 +54,20 @@ La respuesta 201 SHALL incluir `id`, `cliente_id`, `fecha`, `total` y, por cada 
 - **THEN** cada renglón incluye `titulo`, `precio_unitario` y `subtotal`
 
 ### Requirement: Cliente o libro inexistente responde 409
-Si el cliente o alguno de los libros no existe, la API SHALL responder 409 con un mensaje propio, sin devolver texto interno de la base (RN-12). La inexistencia de un libro SHALL detectarse al leer su precio, sin consultar la existencia del cliente antes de escribir.
+Si el cliente o alguno de los libros no existe, o el libro está dado de baja, o el stock del libro no alcanza para la cantidad pedida, la API SHALL responder 409 con un mensaje propio, sin devolver texto interno de la base (RN-12, RN-15) y sin escrituras parciales. La inexistencia de un libro SHALL detectarse al leer su precio entre los libros vigentes, sin consultar la existencia del cliente antes de escribir.
 
 #### Scenario: Cliente inexistente
 - **WHEN** se envía `POST /ventas/` con un `cliente_id` que no existe
-- **THEN** la API responde 409 con un mensaje propio y no queda ninguna venta ni renglón persistidos
+- **THEN** la API responde 409 con un mensaje propio y no queda ninguna venta, renglón, descuento ni movimiento
 
 #### Scenario: Libro inexistente
 - **WHEN** se envía `POST /ventas/` con un `libro_id` que no existe
-- **THEN** la API responde 409 con un mensaje propio y no queda ninguna venta ni renglón persistidos
+- **THEN** la API responde 409 con un mensaje propio y no queda ninguna escritura
 
-### Requirement: La venta registra un hecho y no modifica el stock
-Las ventas NO SHALL modificarse después de creadas: el módulo NO expone `PATCH /ventas/{id}` (RN-08). Registrar una venta NO SHALL modificar `libro.stock` (SU-01).
+#### Scenario: Libro dado de baja
+- **WHEN** se envía `POST /ventas/` con un libro cuyo `borrado_en` no es nulo
+- **THEN** la API responde 409 y no modifica el stock
 
-#### Scenario: Sin modificación de ventas
-- **WHEN** se intenta `PATCH /ventas/{id}`
-- **THEN** la API no expone esa operación
-
-#### Scenario: El stock no cambia al vender
-- **WHEN** se registra una venta de un libro con `stock = 10`
-- **THEN** el libro sigue con `stock = 10` después de la venta
+#### Scenario: Stock insuficiente
+- **WHEN** se envía `POST /ventas/` pidiendo más unidades de las que el libro tiene en stock
+- **THEN** la API responde 409 y no queda ninguna escritura
